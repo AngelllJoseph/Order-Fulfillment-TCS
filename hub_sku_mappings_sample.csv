@@ -1,0 +1,5 @@
+hub_code,product_sku,max_daily_production,lead_time_hours,priority,is_enabled
+HUB-001,SKU-1001,200,24,1,True
+HUB-001,SKU-1002,150,48,2,True
+HUB-002,SKU-1001,100,72,2,False
+HUB-003,SKU-1003,50,48,1,True
