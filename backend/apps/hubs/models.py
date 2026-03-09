@@ -22,6 +22,8 @@ class Hub(models.Model):
     max_daily_capacity = models.IntegerField(default=500)
     max_concurrent_orders = models.IntegerField(default=100)
     current_load = models.IntegerField(default=0)
+    supported_skus = models.CharField(max_length=255, blank=True, null=True, help_text="Comma-separated SKUs supported by this hub")
+
     
     # Operational
     production_lead_time = models.CharField(max_length=100, help_text="e.g., 24-48 hours", blank=True, null=True)
