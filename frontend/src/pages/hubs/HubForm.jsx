@@ -19,6 +19,7 @@ const HubForm = ({ hub, onSave, onCancel, colors, darkMode }) => {
         status: 'ACTIVE',
         auto_assignment_enabled: true,
         priority_level: 1,
+        supported_skus: '',
         ...hub
     });
 
@@ -196,6 +197,15 @@ const HubForm = ({ hub, onSave, onCancel, colors, darkMode }) => {
                                         placeholder="e.g. 9 AM - 6 PM, Mon-Sat"
                                     />
                                 </div>
+                            </div>
+                            <div style={styles.formGroup}>
+                                <label style={styles.label}>Supported SKUs</label>
+                                <input
+                                    name="supported_skus" style={styles.input}
+                                    value={formData.supported_skus} onChange={handleChange}
+                                    placeholder="e.g. P001, P002, P003"
+                                />
+                                <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>Comma-separated list of supported SKUs.</span>
                             </div>
                         </div>
 

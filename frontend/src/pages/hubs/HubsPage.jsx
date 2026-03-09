@@ -259,6 +259,11 @@ const HubsPage = ({ colors, darkMode }) => {
                                             <div>
                                                 <div style={{ fontWeight: 600 }}>{h.name}</div>
                                                 <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>ID: {h.hub_code}</div>
+                                                {h.supported_skus && (
+                                                    <div style={{ fontSize: '0.70rem', color: colors.textMuted, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <Package size={10} /> SKUs: {h.supported_skus}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </td>

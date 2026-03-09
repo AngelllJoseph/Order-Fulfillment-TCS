@@ -187,7 +187,7 @@ const AIRecommendationsPage = ({ colors, darkMode }) => {
                             {recommendations.length === 0 && (
                                 <tr>
                                     <td colSpan="7" style={{ ...styles.td, textAlign: 'center', padding: '4rem', color: colors.textMuted }}>
-                                        No active AI recommendations found in logs.
+                                        No active AI logs found.
                                     </td>
                                 </tr>
                             )}

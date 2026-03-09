@@ -8,6 +8,7 @@ import ProductsPage from '../pages/products/ProductsPage';
 import OrdersPage from '../pages/orders/OrdersPage';
 import SystemMaintenancePage from '../pages/system/SystemMaintenancePage';
 import SettingsPage from '../pages/settings/SettingsPage';
+import NotificationApprovalPage from './operations/NotificationApprovalPage';
 import { hubService, commonService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from '../components/NotificationBell';
@@ -296,7 +297,7 @@ const AdminDashboard = () => {
         { id: 'hubs', label: 'Manufacturing Hubs', icon: MapPin },
         { id: 'products', label: 'Products & SKUs', icon: Package },
         { id: 'ai-config', label: 'AI Configuration', icon: Cpu },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
+        { id: 'notification-approval', label: 'Notification Approval', icon: Bell },
         { id: 'audit', label: 'Audit & Compliance', icon: ShieldCheck },
         { id: 'maintenance', label: 'System Maintenance', icon: Wrench },
         { id: 'settings', label: 'Settings', icon: Settings },
@@ -482,6 +483,7 @@ const AdminDashboard = () => {
                             {activeTab === 'orders' && <OrdersPage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'hubs' && <HubsPage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'products' && <ProductsPage colors={colors} darkMode={darkMode} />}
+                            {activeTab === 'notification-approval' && <NotificationApprovalPage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'maintenance' && <SystemMaintenancePage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'settings' && <SettingsPage colors={colors} darkMode={darkMode} />}
                         </>
