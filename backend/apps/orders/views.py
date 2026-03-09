@@ -7,11 +7,13 @@ from .models import Order, OrderStatusHistory
 from .serializers import OrderSerializer, OrderCreateSerializer, OrderStatusHistorySerializer
 from .filters import OrderFilter
 from apps.products.models import Product
+from django_filters.rest_framework import DjangoFilterBackend
 
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all().prefetch_related('status_history', 'product', 'hub')
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
     filterset_class = OrderFilter
 
     def get_serializer_class(self):
