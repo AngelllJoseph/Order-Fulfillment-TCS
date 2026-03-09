@@ -14,6 +14,7 @@ import { opsHubService } from '../../services/hubs';
 
 const OrderAssignmentPage = ({ colors, darkMode }) => {
     const [unassignedOrders, setUnassignedOrders] = useState([]);
+    const [assignedOrders, setAssignedOrders] = useState([]);
     const [hubs, setHubs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [assigning, setAssigning] = useState(null);
@@ -26,12 +27,22 @@ const OrderAssignmentPage = ({ colors, darkMode }) => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [ordersRes, hubsRes] = await Promise.all([
+            const [unassignedRes, assignedRes, hubsRes] = await Promise.all([
                 opsOrderService.getUnassignedOrders(),
+                opsOrderService.getOrders({ status: 'ASSIGNED' }),
                 opsHubService.getMonitoringStats()
             ]);
-            setUnassignedOrders(ordersRes.data);
+            setUnassignedOrders(unassignedRes.data);
+            setAssignedOrders(assignedRes.data.results || assignedRes.data); // Handle paginated or unpaginated response
             setHubs(hubsRes.data);
+
+            const initialSelections = {};
+            unassignedRes.data.forEach(order => {
+                if (order.ai_recommendation?.hub_id) {
+                    initialSelections[order.id] = order.ai_recommendation.hub_id;
+                }
+            });
+            setSelectedHubs(initialSelections);
         } catch (err) {
             console.error("Failed to fetch assignment data:", err);
         } finally {
@@ -148,10 +159,18 @@ const OrderAssignmentPage = ({ colors, darkMode }) => {
                                 </td>
                                 <td style={styles.td}>{order.quantity}</td>
                                 <td style={styles.td}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                        <span style={styles.aiBadge}><Brain size={12} /> Hub B (Confidence 94%)</span>
-                                        <span style={{ fontSize: '0.7rem', color: colors.textMuted }}>Reason: Lowest current load & closest to shipping address.</span>
-                                    </div>
+                                    {order.ai_recommendation ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                            <span style={styles.aiBadge}>
+                                                <Brain size={12} /> {order.ai_recommendation.hub_name} (Confidence {order.ai_recommendation.confidence}%)
+                                            </span>
+                                            <span style={{ fontSize: '0.7rem', color: colors.textMuted }}>
+                                                Reason: {order.ai_recommendation.reason}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>No recommendation available</span>
+                                    )}
                                 </td>
                                 <td style={styles.td}>
                                     <select
@@ -185,6 +204,62 @@ const OrderAssignmentPage = ({ colors, darkMode }) => {
                         <div style={{ color: colors.primary, marginBottom: '1rem' }}><CheckCircle size={48} /></div>
                         <h3 style={{ fontWeight: 700, fontSize: '1.25rem' }}>All Caught Up!</h3>
                         <p style={{ color: colors.textMuted, fontSize: '0.875rem' }}>No orders are currently pending assignment.</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Assigned Orders Section */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Assigned Orders ({assignedOrders.length})</h2>
+            </div>
+
+            <div style={styles.tableContainer}>
+                <table style={styles.table}>
+                    <thead>
+                        <tr>
+                            <th style={styles.th}>Order ID</th>
+                            <th style={styles.th}>Product & SKU</th>
+                            <th style={styles.th}>Qty</th>
+                            <th style={styles.th}>Assigned Hub</th>
+                            <th style={styles.th}>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {assignedOrders.map(order => (
+                            <tr key={order.order_id}>
+                                <td style={styles.td}><span style={{ fontWeight: 700 }}>{order.order_id}</span></td>
+                                <td style={styles.td}>
+                                    <div style={{ fontWeight: 600 }}>{order.product_details?.name}</div>
+                                    <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>{order.sku}</div>
+                                </td>
+                                <td style={styles.td}>{order.quantity}</td>
+                                <td style={styles.td}>
+                                    <div style={{ fontWeight: 600, color: colors.primary }}>
+                                        {order.hub_details?.name || 'Unknown Hub'}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>
+                                        {order.hub_details?.hub_code || ''}
+                                    </div>
+                                </td>
+                                <td style={styles.td}>
+                                    <span style={{
+                                        padding: '0.25rem 0.5rem',
+                                        borderRadius: '0.375rem',
+                                        background: `${colors.primary}15`,
+                                        color: colors.primary,
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                    }}>
+                                        {order.status}
+                                    </span>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                {assignedOrders.length === 0 && (
+                    <div style={{ padding: '3rem', textAlign: 'center' }}>
+                        <p style={{ color: colors.textMuted, fontSize: '0.875rem' }}>No assigned orders found.</p>
                     </div>
                 )}
             </div>

@@ -27,7 +27,6 @@ import OrdersPage from './operations/OrdersPage';
 import OrderAssignmentPage from './operations/OrderAssignmentPage';
 import HubMonitoringPage from './operations/HubMonitoringPage';
 import AIRecommendationsPage from './operations/AIRecommendationsPage';
-import NotificationApprovalPage from './operations/NotificationApprovalPage';
 import ReportsPage from './operations/ReportsPage';
 import AuditLogsPage from './operations/AuditLogsPage';
 import ProfileSettingsPage from './operations/ProfileSettingsPage';
@@ -192,8 +191,7 @@ const OperationsDashboard = () => {
         { id: 'orders', label: 'Orders', icon: ShoppingCart },
         { id: 'assignment', label: 'Order Assignment', icon: ClipboardList },
         { id: 'monitoring', label: 'Hub Monitoring', icon: Activity },
-        { id: 'ai-recommendations', label: 'AI Recommendations', icon: Brain },
-        { id: 'notification-approval', label: 'Notification Approval', icon: Bell },
+        { id: 'ai-recommendations', label: 'AI Log', icon: Brain },
         { id: 'reports', label: 'Reports', icon: FileText },
         { id: 'audit-logs', label: 'Audit Logs', icon: History },
         { id: 'profile', label: 'Profile / Settings', icon: User },
@@ -295,7 +293,6 @@ const OperationsDashboard = () => {
                         {activeTab === 'assignment' && <OrderAssignmentPage colors={colors} darkMode={darkMode} />}
                         {activeTab === 'monitoring' && <HubMonitoringPage colors={colors} darkMode={darkMode} />}
                         {activeTab === 'ai-recommendations' && <AIRecommendationsPage colors={colors} darkMode={darkMode} />}
-                        {activeTab === 'notification-approval' && <NotificationApprovalPage colors={colors} darkMode={darkMode} />}
                         {activeTab === 'reports' && <ReportsPage colors={colors} darkMode={darkMode} />}
                         {activeTab === 'audit-logs' && <AuditLogsPage colors={colors} darkMode={darkMode} />}
                         {activeTab === 'profile' && <ProfileSettingsPage colors={colors} darkMode={darkMode} />}

@@ -14,10 +14,101 @@ class OrderSerializer(serializers.ModelSerializer):
     product_details = ProductSerializer(source='product', read_only=True)
     hub_details = HubSerializer(source='hub', read_only=True)
     status_history = OrderStatusHistorySerializer(many=True, read_only=True)
+    ai_recommendation = serializers.SerializerMethodField()
     
     class Meta:
         model = Order
         fields = '__all__'
+
+    def get_ai_recommendation(self, obj):
+        if obj.hub:
+            return None # Already assigned
+        
+        from apps.hubs.models import Hub, HubSKUMapping
+        
+        active_hubs = Hub.objects.filter(status='ACTIVE', auto_assignment_enabled=True)
+        if not active_hubs.exists():
+            return None
+            
+        # Check if there are any SKU mappings defined overall
+        has_mappings = HubSKUMapping.objects.filter(is_enabled=True).exists()
+        
+        eligible_hubs = []
+        for hub in active_hubs:
+            # Capacity check
+            if hub.max_daily_capacity > 0 and hub.current_load + obj.quantity > hub.max_daily_capacity:
+                continue
+                
+            # SKU Support Check
+            supported_skus_str = hub.supported_skus or ""
+            supported_skus_list = [s.strip().lower() for s in supported_skus_str.split(',') if s.strip()]
+            
+            order_sku = (obj.sku or "").strip().lower()
+            
+            # If the hub has specified supported SKUs, the order must match one.
+            # If the hub has NO supported_skus specified, we assume it supports everything
+            if supported_skus_list and order_sku not in supported_skus_list:
+                # Also fallback to product_id if sku isn't a direct match
+                product_id = (obj.product.product_id or "").strip().lower()
+                if product_id not in supported_skus_list:
+                    continue
+                    
+            eligible_hubs.append(hub)
+            
+        if not eligible_hubs:
+            return None
+            
+        best_hub = None
+        highest_score = -1
+        best_reason = ""
+        best_confidence = 0
+        
+        shipping_text = (obj.shipping_address or "").lower()
+        
+        for hub in eligible_hubs:
+            score = 0
+            reason = []
+            
+            hub_loc = (hub.location or "").lower()
+            if hub_loc and hub_loc in shipping_text:
+                score += 50
+                reason.append("closest to shipping address")
+            
+            if hub.max_daily_capacity > 0:
+                available_pct = 100 - ((hub.current_load / hub.max_daily_capacity) * 100)
+                score += available_pct * 0.4
+                if available_pct > 50:
+                    reason.append("high available capacity")
+                else:
+                    reason.append("sufficient capacity")
+            else:
+                score += 20
+                reason.append("available capacity")
+
+            score += (hub.priority_level * 2)
+            
+            if score > highest_score:
+                highest_score = score
+                best_hub = hub
+                
+                if "closest" in str(reason) and "capacity" in str(reason):
+                    best_reason = "Lowest current load & closest to shipping address."
+                elif reason:
+                    best_reason = " and ".join(reason).capitalize() + "."
+                else:
+                    best_reason = "Best available hub based on system load."
+                    
+                best_confidence = min(99, max(50, int(score)))
+
+        if best_hub:
+             return {
+                 "hub_id": best_hub.id,
+                 "hub_name": best_hub.name,
+                 "confidence": best_confidence,
+                 "reason": best_reason
+             }
+        
+        return None
 
 class OrderCreateSerializer(serializers.ModelSerializer):
     class Meta:

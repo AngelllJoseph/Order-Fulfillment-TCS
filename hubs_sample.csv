@@ -1,4 +1,0 @@
-hub_code,name,location,contact_person,contact_email,contact_phone,max_daily_capacity,max_concurrent_orders,current_load,production_lead_time,operating_hours,status,auto_assignment_enabled,priority_level
-HUB-002,Main Manufacturing Hub 1,New York NY,John Doe,john.doe@hub1.com,+1-555-0123,500,100,0,24-48 hours,9 AM - 6 PM Mon-Sat,ACTIVE,TRUE,1
-HUB-003,Secondary Hub 2,Los Angeles CA,Jane Smith,jane.smith@hub2.com,+1-555-0456,300,50,0,48-72 hours,8 AM - 8 PM Mon-Fri,ACTIVE,TRUE,2
-HUB-004,Overflow Hub 3,Chicago IL,Bob Johnson,bob.johnson@hub3.com,+1-555-0789,200,30,0,72 hours,10 AM - 5 PM Weekdays,MAINTENANCE,FALSE,3
