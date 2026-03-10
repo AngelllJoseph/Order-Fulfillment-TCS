@@ -71,6 +71,7 @@ function App() {
     <ToastProvider>
       <ToastContainer />
       <Routes>
+      <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/admin-dashboard" element={
         <ProtectedRoute allowedRoles={['ADMIN']}>

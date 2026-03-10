@@ -9,6 +9,7 @@ import OrdersPage from '../pages/orders/OrdersPage';
 import SystemMaintenancePage from '../pages/system/SystemMaintenancePage';
 import SettingsPage from '../pages/settings/SettingsPage';
 import NotificationApprovalPage from './operations/NotificationApprovalPage';
+import CommunicationPage from '../pages/orders/CommunicationPage';
 import { hubService, commonService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from '../components/NotificationBell';
@@ -34,7 +35,8 @@ import {
     ShieldAlert,
     Menu,
     X,
-    ShoppingCart
+    ShoppingCart,
+    MessageSquare
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -298,6 +300,7 @@ const AdminDashboard = () => {
             ]
         },
         { id: 'orders', label: 'Orders Management', icon: ShoppingCart },
+        { id: 'communication', label: 'Communication', icon: MessageSquare },
         { id: 'hubs', label: 'Manufacturing Hubs', icon: MapPin },
         { id: 'products', label: 'Products & SKUs', icon: Package },
         { id: 'ai-config', label: 'AI Configuration', icon: Cpu },
@@ -487,6 +490,7 @@ const AdminDashboard = () => {
                             {activeTab === 'orders' && <OrdersPage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'hubs' && <HubsPage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'products' && <ProductsPage colors={colors} darkMode={darkMode} />}
+                            {activeTab === 'communication' && <CommunicationPage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'notification-approval' && <NotificationApprovalPage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'maintenance' && <SystemMaintenancePage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'settings' && <SettingsPage colors={colors} darkMode={darkMode} />}
