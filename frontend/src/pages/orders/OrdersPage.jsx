@@ -9,7 +9,7 @@ import Toast from '../../components/Toast';
 import OrderForm from './OrderForm';
 import OrderDetails from './OrderDetails';
 
-const OrdersPage = ({ colors, darkMode }) => {
+const OrdersPage = ({ colors, darkMode, onNavigate }) => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ total_orders: 0, stats: {} });
@@ -410,6 +410,7 @@ const OrdersPage = ({ colors, darkMode }) => {
                     order={selectedOrder}
                     colors={colors}
                     darkMode={darkMode}
+                    onNavigate={onNavigate}
                     onClose={() => setIsDetailsOpen(false)}
                     onUpdateStatus={async (status, notes) => {
                         await orderService.updateStatus(selectedOrder.id, status, notes);

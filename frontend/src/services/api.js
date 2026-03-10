@@ -123,7 +123,9 @@ export const orderService = {
       }],
     });
   },
-  updateStatus: (id, status, notes) => api.post(`/orders/${id}/update-status/`, { status, notes }),
+  updateStatus: (id, status, notes, extra = {}) => api.post(`/orders/${id}/update-status/`, { status, notes, ...extra }),
+  sendEmailToCustomer: (id, data) => api.post(`/orders/${id}/send-email/`, data),
+  getActivityLog: () => api.get('/orders/activity-log/'),
   getStats: () => api.get('/orders/stats/'),
 };
 

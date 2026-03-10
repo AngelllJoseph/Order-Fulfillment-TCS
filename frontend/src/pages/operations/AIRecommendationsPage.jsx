@@ -92,7 +92,6 @@ const AIRecommendationsPage = ({ colors, darkMode }) => {
         actionBtn: (type) => ({
             padding: '0.5rem 1rem',
             borderRadius: '0.6rem',
-            border: 'none',
             background: type === 'approve' ? colors.primary : type === 'reject' ? 'transparent' : colors.bg,
             color: type === 'approve' ? '#fff' : type === 'reject' ? '#ef4444' : colors.text,
             fontWeight: 600,

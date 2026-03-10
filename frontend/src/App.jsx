@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import AdminDashboard from './pages/AdminDashboard';
 import OperationsDashboard from './pages/OperationsDashboard';
+import ProductionDashboard from './pages/ProductionDashboard';
 
 const pageStyle = {
   minHeight: '100vh',
@@ -61,10 +62,15 @@ const RootRedirect = () => {
   return <Navigate to={roleMap[user.role] || '/dashboard'} replace />;
 };
 
+import { ToastProvider } from './context/ToastContext';
+import ToastContainer from './components/common/ToastContainer';
+
 // ── App ─────────────────────────────────────────────────────────────────────
 function App() {
   return (
-    <Routes>
+    <ToastProvider>
+      <ToastContainer />
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/admin-dashboard" element={
         <ProtectedRoute allowedRoles={['ADMIN']}>
@@ -78,7 +84,7 @@ function App() {
       } />
       <Route path="/production-dashboard" element={
         <ProtectedRoute allowedRoles={['MANUFACTURING_LEAD']}>
-          <DashboardPlaceholder title="Production Dashboard" emoji="🏭" />
+          <ProductionDashboard />
         </ProtectedRoute>
       } />
       <Route path="/reports-dashboard" element={
@@ -86,8 +92,8 @@ function App() {
           <DashboardPlaceholder title="Reports Dashboard" emoji="📈" />
         </ProtectedRoute>
       } />
-      <Route path="*" element={<RootRedirect />} />
-    </Routes>
+      </Routes>
+    </ToastProvider>
   );
 }
 

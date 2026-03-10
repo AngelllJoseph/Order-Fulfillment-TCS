@@ -9,6 +9,7 @@ import OrdersPage from '../pages/orders/OrdersPage';
 import SystemMaintenancePage from '../pages/system/SystemMaintenancePage';
 import SettingsPage from '../pages/settings/SettingsPage';
 import NotificationApprovalPage from './operations/NotificationApprovalPage';
+import CommunicationPage from '../pages/orders/CommunicationPage';
 import { hubService, commonService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from '../components/NotificationBell';
@@ -34,7 +35,8 @@ import {
     ShieldAlert,
     Menu,
     X,
-    ShoppingCart
+    ShoppingCart,
+    Mail
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -43,6 +45,7 @@ const AdminDashboard = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [expandedMenus, setExpandedMenus] = useState(['user-management']);
     const [activeTab, setActiveTab] = useState('dashboard');
+    const [navContext, setNavContext] = useState(null);
     const [stats, setStats] = useState({
         total_orders: 0,
         active_users: 0,
@@ -71,6 +74,11 @@ const AdminDashboard = () => {
         setExpandedMenus(prev =>
             prev.includes(menuId) ? prev.filter(id => id !== menuId) : [...prev, menuId]
         );
+    };
+
+    const handleNavigate = (tab, context = null) => {
+        setNavContext(context);
+        setActiveTab(tab);
     };
 
     // Define dynamic colors based on theme
@@ -294,6 +302,7 @@ const AdminDashboard = () => {
             ]
         },
         { id: 'orders', label: 'Orders Management', icon: ShoppingCart },
+        { id: 'communication', label: 'Communication', icon: Mail },
         { id: 'hubs', label: 'Manufacturing Hubs', icon: MapPin },
         { id: 'products', label: 'Products & SKUs', icon: Package },
         { id: 'ai-config', label: 'AI Configuration', icon: Cpu },
@@ -318,7 +327,7 @@ const AdminDashboard = () => {
                             <button
                                 onClick={() => {
                                     if (item.hasSub) toggleMenu(item.id);
-                                    else setActiveTab(item.id);
+                                    else handleNavigate(item.id);
                                 }}
                                 style={styles.navItem(activeTab === item.id || (item.hasSub && expandedMenus.includes(item.id)))}
                             >
@@ -335,7 +344,7 @@ const AdminDashboard = () => {
                                     {item.subItems.map(sub => (
                                         <button
                                             key={sub.id}
-                                            onClick={() => setActiveTab(sub.id)}
+                                            onClick={() => handleNavigate(sub.id)}
                                             style={styles.navItem(activeTab === sub.id, true)}
                                         >
                                             {activeTab === sub.id && <div style={styles.navIndicator} />}
@@ -480,7 +489,8 @@ const AdminDashboard = () => {
                             {activeTab === 'roles' && <RolesPermissionsPage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'login-logs' && <LogsPages colors={colors} darkMode={darkMode} />}
                             {activeTab === 'sessions' && <UserSessionsPage colors={colors} darkMode={darkMode} />}
-                            {activeTab === 'orders' && <OrdersPage colors={colors} darkMode={darkMode} />}
+                            {activeTab === 'orders' && <OrdersPage colors={colors} darkMode={darkMode} onNavigate={handleNavigate} />}
+                            {activeTab === 'communication' && <CommunicationPage colors={colors} darkMode={darkMode} initialContext={navContext} />}
                             {activeTab === 'hubs' && <HubsPage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'products' && <ProductsPage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'notification-approval' && <NotificationApprovalPage colors={colors} darkMode={darkMode} />}

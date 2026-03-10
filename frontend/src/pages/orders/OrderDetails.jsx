@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Clock, MapPin, Package, User, History, Send, Loader2 } from 'lucide-react';
+import { X, Clock, MapPin, Package, User, History, Send, Loader2, Mail } from 'lucide-react';
+import { orderService } from '../../services/api';
 
-const OrderDetails = ({ order, colors, darkMode, onClose, onUpdateStatus }) => {
+const OrderDetails = ({ order, colors, darkMode, onClose, onUpdateStatus, onNavigate }) => {
     const [newStatus, setNewStatus] = useState(order.status);
     const [notes, setNotes] = useState('');
     const [updating, setUpdating] = useState(false);
@@ -11,6 +12,12 @@ const OrderDetails = ({ order, colors, darkMode, onClose, onUpdateStatus }) => {
         await onUpdateStatus(newStatus, notes);
         setUpdating(false);
         setNotes('');
+    };
+    
+    const handleCommunicate = () => {
+        if (onNavigate) {
+            onNavigate('communication', order);
+        }
     };
 
     const statusOptions = [
@@ -85,7 +92,21 @@ const OrderDetails = ({ order, colors, darkMode, onClose, onUpdateStatus }) => {
                             </div>
                         </div>
 
-                        <div style={styles.sectionTitle}><User size={14} /> Customer Information</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <div style={{ ...styles.sectionTitle, marginBottom: 0 }}><User size={14} /> Customer Information</div>
+                            {order.customer_email && (
+                                <button
+                                    onClick={handleCommunicate}
+                                    style={{
+                                        background: `${colors.primary}15`, color: colors.primary, border: `1px solid ${colors.primary}40`,
+                                        padding: '0.4rem 0.8rem', borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 600,
+                                        display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer'
+                                    }}
+                                >
+                                    <Mail size={14} /> Chat with Customer
+                                </button>
+                            )}
+                        </div>
                         <div style={styles.infoCard}>
                             <div style={styles.infoItem}><div style={styles.label}>Name</div><div style={styles.value}>{order.customer_name}</div></div>
                             <div style={styles.infoItem}><div style={styles.label}>Email</div><div style={styles.value}>{order.customer_email || 'N/A'}</div></div>

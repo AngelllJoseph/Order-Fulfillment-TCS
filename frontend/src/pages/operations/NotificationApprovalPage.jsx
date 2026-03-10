@@ -9,7 +9,9 @@ import {
     Eye,
     Brain,
     Clock,
-    Plus
+    Plus,
+    Package,
+    Hash
 } from 'lucide-react';
 import { notificationService } from '../../services/notifications';
 import { userService } from '../../services/api';
@@ -25,7 +27,9 @@ const NotificationApprovalPage = ({ colors, darkMode }) => {
         user_id: '',
         title: '',
         message: '',
-        type: 'INFO'
+        type: 'INFO',
+        related_order_id: '',
+        related_product_name: ''
     });
     const [sending, setSending] = useState(false);
 
@@ -57,7 +61,7 @@ const NotificationApprovalPage = ({ colors, darkMode }) => {
             if (!payload.user_id) payload.user_id = null; // Broadcast
             
             await notificationService.sendNotification(payload);
-            setFormData({ user_id: '', title: '', message: '', type: 'INFO' });
+            setFormData({ user_id: '', title: '', message: '', type: 'INFO', related_order_id: '', related_product_name: '' });
             setShowForm(false);
             fetchData(); // Refresh list
             alert('Notification sent successfully!');
@@ -187,6 +191,26 @@ const NotificationApprovalPage = ({ colors, darkMode }) => {
                                     <option value="SUCCESS">Success</option>
                                 </select>
                             </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.8rem', color: colors.textMuted, marginBottom: '0.5rem' }}>Related Order ID (Optional)</label>
+                                <input 
+                                    type="text" 
+                                    style={styles.input} 
+                                    placeholder="e.g. ORD-20230501-001"
+                                    value={formData.related_order_id}
+                                    onChange={(e) => setFormData({...formData, related_order_id: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.8rem', color: colors.textMuted, marginBottom: '0.5rem' }}>Related Product Name (Optional)</label>
+                                <input 
+                                    type="text" 
+                                    style={styles.input} 
+                                    placeholder="e.g. Lithium Ion Battery"
+                                    value={formData.related_product_name}
+                                    onChange={(e) => setFormData({...formData, related_product_name: e.target.value})}
+                                />
+                            </div>
                             <div style={{ gridColumn: '1 / -1' }}>
                                 <label style={{ display: 'block', fontSize: '0.8rem', color: colors.textMuted, marginBottom: '0.5rem' }}>Title</label>
                                 <input 
@@ -229,6 +253,7 @@ const NotificationApprovalPage = ({ colors, darkMode }) => {
                                 <th style={styles.th}>Type</th>
                                 <th style={styles.th}>Title</th>
                                 <th style={styles.th}>Message Preview</th>
+                                <th style={styles.th}>Context</th>
                                 <th style={styles.th}>Target User</th>
                                 <th style={styles.th}>Status</th>
                             </tr>
@@ -246,6 +271,24 @@ const NotificationApprovalPage = ({ colors, darkMode }) => {
                                                 {notif.message}
                                             </div>
                                         </div>
+                                    </td>
+                                    <td style={styles.td}>
+                                        {(notif.related_order_id || notif.related_product_name) ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                {notif.related_order_id && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600, color: colors.text, background: colors.bg, padding: '2px 6px', borderRadius: '4px', border: `1px solid ${colors.border}` }}>
+                                                        <Hash size={12} color={colors.accent} /> {notif.related_order_id}
+                                                    </div>
+                                                )}
+                                                {notif.related_product_name && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: colors.textMuted }}>
+                                                        <Package size={12} /> {notif.related_product_name}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span style={{ color: colors.textMuted, fontSize: '0.75rem', fontStyle: 'italic' }}>General</span>
+                                        )}
                                     </td>
                                     <td style={styles.td}>
                                         <div style={{ fontWeight: 600 }}>{notif.user ? `User ID: ${notif.user}` : <span style={{ color: colors.primary }}>Broadcast (All)</span>}</div>
