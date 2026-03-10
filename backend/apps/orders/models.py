@@ -11,8 +11,11 @@ class Order(models.Model):
     STATUS_CHOICES = [
         ('ORDERED', 'Ordered'),
         ('ASSIGNED', 'Assigned to Hub'),
-        ('IN_PRODUCTION', 'In Production'),
-        ('QUALITY_CHECK', 'Quality Check'),
+        ('MANUFACTURING', 'Manufacturing'),
+        ('QUALITY_TEST', 'Quality Test'),
+        ('COMPLETED_MANUFACTURING', 'Completed Manufacturing'),
+        ('DESPATCHED_TO_WAREHOUSE', 'Despatched to Warehouse'),
+        ('DESPATCHED_TO_CUSTOMER', 'Despatched to Customer'),
         ('COMPLETED', 'Completed'),
         ('DELAYED', 'Delayed'),
         ('CANCELLED', 'Cancelled'),
@@ -34,13 +37,23 @@ class Order(models.Model):
     
     # Assignment & Status
     hub = models.ForeignKey('hubs.Hub', on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='ORDERED')
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='ORDERED')
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='NORMAL')
     
-    # Dates
+    # Dates & Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     expected_delivery_date = models.DateField()
+    
+    # Workflow Timestamps
+    manufacturing_started_at = models.DateTimeField(null=True, blank=True)
+    qa_started_at = models.DateTimeField(null=True, blank=True)
+    completed_manufacturing_at = models.DateTimeField(null=True, blank=True)
+    warehouse_despatched_at = models.DateTimeField(null=True, blank=True)
+    customer_despatched_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Delay Tracking
+    delay_reason = models.CharField(max_length=255, blank=True, null=True)
     
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -65,7 +78,7 @@ class Order(models.Model):
 class OrderStatusHistory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='status_history')
-    status = models.CharField(max_length=20, choices=Order.STATUS_CHOICES)
+    status = models.CharField(max_length=50, choices=Order.STATUS_CHOICES)
     notes = models.TextField(blank=True, null=True)
     changed_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

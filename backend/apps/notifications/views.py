@@ -28,12 +28,14 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def send(self, request):
         """
         Admin endpoint to send a notification to specific user(s) or broadcast.
-        Payload: { user_id: ID or null, title: 'Title', message: 'Message', type: 'INFO' }
+        Payload: { user_id: ID or null, title: 'Title', message: 'Message', type: 'INFO', related_order_id, related_product_name }
         """
         user_id = request.data.get('user_id')
         title = request.data.get('title')
         message = request.data.get('message')
         notif_type = request.data.get('type', 'INFO')
+        related_order_id = request.data.get('related_order_id')
+        related_product_name = request.data.get('related_product_name')
 
         if not title or not message:
             return Response({'error': 'Title and message are required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -50,6 +52,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
             title=title,
             message=message,
             type=notif_type,
+            related_order_id=related_order_id,
+            related_product_name=related_product_name,
         )
 
         serializer = self.get_serializer(notification)

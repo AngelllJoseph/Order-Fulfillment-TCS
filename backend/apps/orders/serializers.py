@@ -3,8 +3,16 @@ from .models import Order, OrderStatusHistory
 from apps.products.serializers import ProductSerializer
 from apps.hubs.serializers import HubSerializer
 
+class SimpleOrderSerializer(serializers.ModelSerializer):
+    # Just the fields we need to resolve order context in the timeline Without recursion
+    class Meta:
+        model = Order
+        fields = ['id', 'order_id', 'status', 'customer_name', 'customer_email', 'product']
+
 class OrderStatusHistorySerializer(serializers.ModelSerializer):
     changed_by_name = serializers.ReadOnlyField(source='changed_by.get_full_name')
+    # Use full nested simple serializer instead of just IDs so front-end has the data.
+    order = SimpleOrderSerializer(read_only=True)
 
     class Meta:
         model = OrderStatusHistory

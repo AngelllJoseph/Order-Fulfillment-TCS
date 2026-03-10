@@ -3,6 +3,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
+from django.core.mail import send_mail
 from .models import Order, OrderStatusHistory
 from .serializers import OrderSerializer, OrderCreateSerializer, OrderStatusHistorySerializer
 from .filters import OrderFilter
@@ -142,9 +143,25 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         with transaction.atomic():
             order.status = new_status
-            if new_status == 'COMPLETED':
-                from django.utils import timezone
-                order.completed_at = timezone.now()
+            
+            from django.utils import timezone
+            now = timezone.now()
+            
+            if new_status == 'MANUFACTURING':
+                order.manufacturing_started_at = now
+            elif new_status == 'QUALITY_TEST':
+                order.qa_started_at = now
+            elif new_status == 'COMPLETED_MANUFACTURING':
+                order.completed_manufacturing_at = now
+            elif new_status == 'DESPATCHED_TO_WAREHOUSE':
+                order.warehouse_despatched_at = now
+            elif new_status == 'DESPATCHED_TO_CUSTOMER':
+                order.customer_despatched_at = now
+            elif new_status == 'COMPLETED':
+                order.completed_at = now
+            elif new_status == 'DELAYED':
+                order.delay_reason = request.data.get('delay_reason', notes)
+                
             order.save()
 
             OrderStatusHistory.objects.create(
@@ -153,6 +170,43 @@ class OrderViewSet(viewsets.ModelViewSet):
                 notes=notes,
                 changed_by=request.user if not request.user.is_anonymous else None
             )
+            
+            # Send Notification to Admins
+            from apps.users.models import User
+            from apps.notifications.models import Notification
+            
+            admins = User.objects.filter(role='ADMIN')
+            
+            notification_type = 'INFO'
+            if new_status == 'DELAYED':
+                notification_type = 'WARNING'
+                msg = f"⚠ Order {order.order_id} delayed: {order.delay_reason}"
+            elif new_status == 'COMPLETED':
+                notification_type = 'SUCCESS'
+                msg = f"Order {order.order_id} has been fully completed."
+            elif new_status == 'MANUFACTURING':
+                hub_name = order.hub.name if order.hub else "Hub"
+                msg = f"🔔 Order {order.order_id} manufacturing started at {hub_name}"
+            elif new_status == 'QUALITY_TEST':
+                msg = f"🔔 Order {order.order_id} entered Quality Testing"
+            elif new_status == 'COMPLETED_MANUFACTURING':
+                msg = f"🔔 Manufacturing completed for Order {order.order_id}"
+            elif new_status == 'DESPATCHED_TO_WAREHOUSE':
+                msg = f"📦 Order {order.order_id} dispatched to warehouse"
+            elif new_status == 'DESPATCHED_TO_CUSTOMER':
+                msg = f"🚚 Order {order.order_id} dispatched to customer"
+            else:
+                msg = f"Order {order.order_id} moved to {new_status.replace('_', ' ')}"
+                
+            notifications = [
+                Notification(
+                    user=admin,
+                    title="Production Update",
+                    message=msg,
+                    type=notification_type
+                ) for admin in admins
+            ]
+            Notification.objects.bulk_create(notifications)
 
         return Response(OrderSerializer(order).data)
 
@@ -213,3 +267,118 @@ class OrderViewSet(viewsets.ModelViewSet):
                 pass
 
         return Response(OrderSerializer(order).data)
+
+    @action(detail=True, methods=['post'], url_path='send-email')
+    def send_email(self, request, pk=None):
+        order = self.get_object()
+        subject = request.data.get('subject')
+        message = request.data.get('message')
+
+        if not subject or not message:
+            return Response({"error": "Subject and message are required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if not order.customer_email:
+            return Response({"error": "Order has no customer email address"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from django.template.loader import render_to_string
+            from django.utils.html import strip_tags
+            
+            # Formatting variables for the template
+            status_displays = dict(Order.STATUS_CHOICES)
+            status_text = status_displays.get(order.status, order.status)
+            
+            # Simple progress calc
+            statuses = [s[0] for s in Order.STATUS_CHOICES]
+            try:
+                progress_percentage = min(100, int((statuses.index(order.status) + 1) / len(statuses) * 100))
+            except ValueError:
+                progress_percentage = 50
+                
+            from django.utils.dateformat import DateFormat
+            formatted_expected_date = DateFormat(order.expected_delivery_date).format('d F, Y') if order.expected_delivery_date else "TBD"
+            formatted_order_date = DateFormat(order.created_at).format('d M Y') if order.created_at else DateFormat(timezone.now()).format('d M Y')
+
+            # Determine steps for the horizontal tracker
+            # Step 1: Ordered
+            # Step 2: Ready to ship (Dispatched from factory or at warehouse)
+            # Step 3: Delivered
+            step_1_done = order.status != 'CANCELLED'
+            step_2_done = order.status in ['DESPATCHED_TO_WAREHOUSE', 'WAREHOUSE_RECEIVED', 'DESPATCHED_TO_CUSTOMER', 'COMPLETED']
+            step_3_done = order.status == 'COMPLETED'
+            
+            # Map statuses to dates if possible (simplified for now)
+            step_1_date = formatted_order_date
+            step_2_date = DateFormat(order.completed_manufacturing_at).format('d M') if order.completed_manufacturing_at else ""
+            step_3_range = "Dec 18 - 19" # Placeholder or derived from expected_delivery_date
+            if order.expected_delivery_date:
+                step_3_range = DateFormat(order.expected_delivery_date).format('d M')
+
+            # Calculate financial totals based on product price and quantity
+            price_per_unit = float(order.product.price) if order.product else 0.0
+            quantity = int(order.quantity) if order.quantity else 1
+            
+            subtotal = price_per_unit * quantity
+            shipping = 2.00 if subtotal > 0 else 0.00
+            tax = subtotal * 0.05 # Assuming 5% tax rate
+            order_total = subtotal + shipping + tax
+            
+            from django.utils import timezone
+            current_date = timezone.now().strftime('%d %b %Y')
+
+            context = {
+                'customer_name': order.customer_name,
+                'order_id': order.order_id,
+                'status_text': status_text,
+                'custom_message': message,
+                'progress_percentage': progress_percentage,
+                'product_name': order.product.name if order.product else "Product",
+                'product_price': f"{price_per_unit:.2f}",
+                'quantity': quantity,
+                'expected_delivery': formatted_expected_date,
+                'order_date': formatted_order_date,
+                'subtotal': f"{subtotal:.2f}",
+                'shipping': f"{shipping:.2f}",
+                'tax': f"{tax:.2f}",
+                'order_total': f"{order_total:.2f}",
+                'current_date': current_date,
+                'shipping_address': order.shipping_address,
+                'customer_phone': order.customer_phone,
+                'customer_email': order.customer_email,
+                'step_1_done': step_1_done,
+                'step_2_done': step_2_done,
+                'step_3_done': step_3_done,
+                'step_1_date': step_1_date,
+                'step_2_date': step_2_date,
+                'step_3_range': step_3_range
+            }
+
+            html_message = render_to_string('orders/update_email.html', context)
+            plain_message = strip_tags(html_message)
+
+            send_mail(
+                subject=subject,
+                message=plain_message,
+                from_email='angeljoseph2026@mca.ajce.in', # Using SMTP sender
+                recipient_list=[order.customer_email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+            
+            # Log this as an order status history note so others know an email was sent
+            OrderStatusHistory.objects.create(
+                order=order,
+                status=order.status,
+                notes=f"Email sent to customer ({order.customer_email}). Subject: {subject}",
+                changed_by=request.user if not request.user.is_anonymous else None
+            )
+            
+            return Response({"message": "Email sent successfully"})
+        except Exception as e:
+            return Response({"error": f"Failed to send email: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'], url_path='activity-log')
+    def activity_log(self, request):
+        history = OrderStatusHistory.objects.select_related('order', 'order__product', 'changed_by').order_by('-created_at')[:100]
+        serializer = OrderStatusHistorySerializer(history, many=True)
+        return Response(serializer.data)
