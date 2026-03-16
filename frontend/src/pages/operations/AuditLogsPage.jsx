@@ -14,16 +14,22 @@ const AuditLogsPage = ({ colors, darkMode }) => {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+    const [moduleFilter, setModuleFilter] = useState('');
 
     useEffect(() => {
         fetchLogs();
-    }, [searchQuery]);
+    }, [searchQuery, dateFrom, dateTo, moduleFilter]);
 
     const fetchLogs = async () => {
         try {
             setLoading(true);
             const params = {
                 action: searchQuery || undefined,
+                timestamp_after: dateFrom || undefined,
+                timestamp_before: dateTo || undefined,
+                module: moduleFilter || undefined,
             };
             const res = await auditService.getLogs(params);
             setLogs(res.data.results || res.data || []);
@@ -81,13 +87,26 @@ const AuditLogsPage = ({ colors, darkMode }) => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderRadius: '0.75rem', background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontSize: '0.875rem', fontWeight: 600 }}>
-                        <Calendar size={18} /> Date Range
-                    </button>
-                    <button style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderRadius: '0.75rem', background: colors.surface, border: `1px solid ${colors.border}`, color: colors.text, fontSize: '0.875rem', fontWeight: 600 }}>
-                        <Filter size={18} /> Filters
-                    </button>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 0.75rem', borderRadius: '0.75rem', background: colors.surface, border: `1px solid ${colors.border}` }}>
+                        <Calendar size={16} color={colors.textMuted} />
+                        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                            style={{ background: 'none', border: 'none', color: colors.text, fontSize: '0.8rem', outline: 'none' }} />
+                        <span style={{ color: colors.textMuted, fontSize: '0.8rem' }}>→</span>
+                        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                            style={{ background: 'none', border: 'none', color: colors.text, fontSize: '0.8rem', outline: 'none' }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 0.75rem', borderRadius: '0.75rem', background: colors.surface, border: `1px solid ${colors.border}` }}>
+                        <Filter size={16} color={colors.textMuted} />
+                        <select value={moduleFilter} onChange={e => setModuleFilter(e.target.value)}
+                            style={{ background: 'none', border: 'none', color: colors.text, fontSize: '0.8rem', outline: 'none' }}>
+                            <option value="">All Modules</option>
+                            <option value="AI">AI</option>
+                            <option value="ORDERS">Orders</option>
+                            <option value="INVENTORY">Inventory</option>
+                            <option value="HUBS">Hubs</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 

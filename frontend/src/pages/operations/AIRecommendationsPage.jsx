@@ -8,17 +8,22 @@ import {
     Search,
     Filter,
     Shield,
-    TrendingUp
+    TrendingUp,
+    BarChart3,
+    Percent
 } from 'lucide-react';
 import { aiService } from '../../services/ai';
+import api from '../../services/api';
 
 const AIRecommendationsPage = ({ colors, darkMode }) => {
     const [recommendations, setRecommendations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actioning, setActioning] = useState(null);
+    const [metrics, setMetrics] = useState(null);
 
     useEffect(() => {
         fetchRecommendations();
+        fetchMetrics();
     }, []);
 
     const fetchRecommendations = async () => {
@@ -30,6 +35,15 @@ const AIRecommendationsPage = ({ colors, darkMode }) => {
             console.error("Failed to fetch AI recommendations:", err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchMetrics = async () => {
+        try {
+            const res = await api.get('/reports/ai-metrics/');
+            setMetrics(res.data);
+        } catch (err) {
+            console.error('Failed to fetch AI metrics:', err);
         }
     };
 
@@ -117,6 +131,32 @@ const AIRecommendationsPage = ({ colors, darkMode }) => {
 
     return (
         <div style={styles.container}>
+            {/* AI Decision Metrics Cards */}
+            {metrics && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                    {[
+                        { label: 'Total Decisions', value: metrics.total_decisions, color: colors.primary, icon: <BarChart3 size={20}/> },
+                        { label: 'Approved', value: metrics.approved, color: '#10b981', icon: <CheckCircle size={20}/> },
+                        { label: 'Rejected', value: metrics.rejected, color: '#ef4444', icon: <XCircle size={20}/> },
+                        { label: 'Avg Confidence', value: `${metrics.avg_confidence_score}%`, color: '#f59e0b', icon: <Percent size={20}/> },
+                    ].map((m) => (
+                        <div key={m.label} style={{
+                            background: colors.surface,
+                            border: `1px solid ${colors.border}`,
+                            borderRadius: '1rem',
+                            padding: '1.25rem 1.5rem',
+                            display: 'flex', alignItems: 'center', gap: '1rem'
+                        }}>
+                            <div style={{ color: m.color, background: `${m.color}15`, padding: '0.6rem', borderRadius: '0.6rem' }}>{m.icon}</div>
+                            <div>
+                                <div style={{ fontSize: '0.75rem', color: colors.textMuted, fontWeight: 600 }}>{m.label}</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: colors.text }}>{m.value}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>AI Operational Suggestions</h2>

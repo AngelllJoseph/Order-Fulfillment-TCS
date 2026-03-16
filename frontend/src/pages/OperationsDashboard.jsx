@@ -28,13 +28,16 @@ import OrdersPage from './operations/OrdersPage';
 import OrderAssignmentPage from './operations/OrderAssignmentPage';
 import HubMonitoringPage from './operations/HubMonitoringPage';
 import AIRecommendationsPage from './operations/AIRecommendationsPage';
-import ReportsPage from './operations/ReportsPage';
+import ReportDashboard from './reports/ReportDashboard';
 import AuditLogsPage from './operations/AuditLogsPage';
 import ProfileSettingsPage from './operations/ProfileSettingsPage';
 import HITLApprovalCenter from './operations/HITLApprovalCenter';
 import DelayManagementPage from './operations/DelayManagementPage';
 import DemandSupplyDashboard from './reports/DemandSupplyDashboard';
 import OperationsAlertsCenter from './operations/OperationsAlertsCenter';
+import HITLHistoryPage from './operations/HITLHistoryPage';
+import InventoryMonitoringPage from './operations/InventoryMonitoringPage';
+import ConfidenceSettingsPage from './operations/ConfidenceSettingsPage';
 
 // Sub-components (to be implemented in separate files later for better organization)
 // For now, these will be placeholders within this file or referenced if I create them.
@@ -200,13 +203,16 @@ const OperationsDashboard = () => {
         { id: 'orders', label: 'Orders', icon: ShoppingCart },
         { id: 'assignment', label: 'Order Assignment', icon: ClipboardList },
         { id: 'hitl-approval', label: 'Approval Center', icon: ShieldCheck },
+        { id: 'hitl-history', label: 'Approval History', icon: History },
         { id: 'monitoring', label: 'Hub Monitoring', icon: Activity },
         { id: 'delay-management', label: 'Delay Management', icon: AlertTriangle },
         { id: 'alerts', label: 'Operations Alerts', icon: AlertTriangle },
+        { id: 'inventory', label: 'Inventory', icon: Brain },
         { id: 'ai-recommendations', label: 'AI Log', icon: Brain },
         { id: 'reports', label: 'Reports', icon: FileText },
         { id: 'demand-supply', label: 'Demand & Supply', icon: TrendingUp },
         { id: 'audit-logs', label: 'Audit Logs', icon: History },
+        { id: 'ai-settings', label: 'AI Settings', icon: Brain },
         { id: 'profile', label: 'Profile / Settings', icon: User },
     ];
 
@@ -301,7 +307,7 @@ const OperationsDashboard = () => {
 
                     {/* Page Content Rendered Here */}
                     <div style={{ marginTop: '1rem' }}>
-                        {activeTab === 'dashboard' && <DashboardOverview colors={colors} darkMode={darkMode} />}
+                        {activeTab === 'dashboard' && <DashboardOverview colors={colors} darkMode={darkMode} onNavigate={setActiveTab} />}
                         {activeTab === 'orders' && <OrdersPage colors={colors} darkMode={darkMode} />}
                         {activeTab === 'assignment' && <OrderAssignmentPage colors={colors} darkMode={darkMode} />}
                         {activeTab === 'hitl-approval' && <HITLApprovalCenter colors={colors} darkMode={darkMode} />}
@@ -309,10 +315,13 @@ const OperationsDashboard = () => {
                         { activeTab === 'alerts' && <OperationsAlertsCenter colors={colors} darkMode={darkMode} />}
                         { activeTab === 'monitoring' && <HubMonitoringPage colors={colors} darkMode={darkMode} />}
                         {activeTab === 'ai-recommendations' && <AIRecommendationsPage colors={colors} darkMode={darkMode} />}
-                        {activeTab === 'reports' && <ReportsPage colors={colors} darkMode={darkMode} />}
+                        {activeTab === 'reports' && <ReportDashboard colors={colors} darkMode={darkMode} />}
                         {activeTab === 'demand-supply' && <DemandSupplyDashboard colors={colors} darkMode={darkMode} />}
                         {activeTab === 'audit-logs' && <AuditLogsPage colors={colors} darkMode={darkMode} />}
                         {activeTab === 'profile' && <ProfileSettingsPage colors={colors} darkMode={darkMode} />}
+                        {activeTab === 'hitl-history' && <HITLHistoryPage colors={colors} darkMode={darkMode} />}
+                        {activeTab === 'inventory' && <InventoryMonitoringPage colors={colors} darkMode={darkMode} />}
+                        {activeTab === 'ai-settings' && <ConfidenceSettingsPage colors={colors} darkMode={darkMode} />}
                     </div>
                 </main>
             </div>

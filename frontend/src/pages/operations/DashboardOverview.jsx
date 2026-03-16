@@ -20,7 +20,7 @@ import { opsOrderService } from '../../services/orders';
 import { opsHubService } from '../../services/hubs';
 import { aiService } from '../../services/ai';
 
-const DashboardOverview = ({ colors, darkMode }) => {
+const DashboardOverview = ({ colors, darkMode, onNavigate }) => {
     const [stats, setStats] = useState({
         total: 0,
         unassigned: 0,
@@ -33,23 +33,27 @@ const DashboardOverview = ({ colors, darkMode }) => {
         daily_trend: []
     });
     const [loading, setLoading] = useState(true);
+    const [inventoryAlerts, setInventoryAlerts] = useState([]);
 
     useEffect(() => {
         fetchDashboardData();
+        fetchInventoryAlerts();
     }, []);
 
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
-            const [orderRes, hubRes, aiRes] = await Promise.all([
+            const [orderRes, hubRes, aiRes, trendRes] = await Promise.all([
                 opsOrderService.getStats(),
                 opsHubService.getMonitoringStats(),
-                aiService.getDecisions({ status: 'WAITING_APPROVAL' })
+                aiService.getDecisions({ status: 'WAITING_APPROVAL' }),
+                import('../../services/api').then(m => m.default.get('/reports/order-trend/?days=30')),
             ]);
 
             const orderData = orderRes.data;
             const hubData = hubRes.data;
             const aiData = aiRes.data.results || aiRes.data;
+            const trendData = trendRes.data || [];
 
             // Map backend status stats to pie chart format
             const statusMap = {
@@ -76,13 +80,23 @@ const DashboardOverview = ({ colors, darkMode }) => {
                 active_hubs: hubData.filter(h => h.status === 'ACTIVE').length,
                 pending_ai: aiData.length || 0,
                 by_status: byStatus,
-                hub_utilization: hubData.map(h => ({ name: h.name, utilization: h.usage_percent })),
-                daily_trend: []
+                hub_utilization: hubData.map(h => ({ name: h.name, utilization: h.usage_percent, current_load: h.current_load, max_capacity: h.max_capacity })),
+                daily_trend: trendData,
             });
         } catch (err) {
             console.error("Failed to fetch dashboard data:", err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchInventoryAlerts = async () => {
+        try {
+            const res = await import('../../services/api').then(m => m.default.get('/operations/alerts/'));
+            const alerts = (res.data || []).filter(a => a.alert_type === 'INVENTORY');
+            setInventoryAlerts(alerts);
+        } catch (err) {
+            // Non-critical; ignore if fails
         }
     };
 
@@ -234,7 +248,7 @@ const DashboardOverview = ({ colors, darkMode }) => {
                 <div style={styles.chartCard}>
                     <h3 style={styles.chartTitle}>Orders by Status</h3>
                     <div style={{ height: '250px' }}>
-                        <ResponsiveContainer width="100%" height={250}>
+                        <ResponsiveContainer width="100%" height={250} minWidth={0} minHeight={0}>
                             <PieChart>
                                 <Pie
                                     data={stats.by_status.length > 0 ? stats.by_status : [{ name: 'No Orders', value: 1 }]}
@@ -261,7 +275,7 @@ const DashboardOverview = ({ colors, darkMode }) => {
                 <div style={styles.chartCard}>
                     <h3 style={styles.chartTitle}>Hub Capacity Utilization (%)</h3>
                     <div style={{ height: '250px' }}>
-                        <ResponsiveContainer width="100%" height={250}>
+                        <ResponsiveContainer width="100%" height={250} minWidth={0} minHeight={0}>
                             <BarChart data={stats.hub_utilization}>
                                 <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} />
                                 <XAxis dataKey="name" stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} />
@@ -279,8 +293,8 @@ const DashboardOverview = ({ colors, darkMode }) => {
                 <div style={{ ...styles.chartCard, gridColumn: 'span 1' }}>
                     <h3 style={styles.chartTitle}>Orders Created per Day</h3>
                     <div style={{ height: '250px' }}>
-                        <ResponsiveContainer width="100%" height={250}>
-                            <LineChart data={[] /* Backend needed for trend */}>
+                        <ResponsiveContainer width="100%" height={250} minWidth={0} minHeight={0}>
+                            <LineChart data={stats.daily_trend}>
                                 <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} />
                                 <XAxis dataKey="date" stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} />
                                 <YAxis stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} />
@@ -309,7 +323,7 @@ const DashboardOverview = ({ colors, darkMode }) => {
                     </div>
                     <ArrowRight size={18} color={colors.textMuted} />
                 </div>
-                <div style={styles.actionBtn}>
+                <div style={{ ...styles.actionBtn, cursor: 'pointer' }} onClick={() => onNavigate && onNavigate('delay-management')} role="button" tabIndex={0}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <div style={{ padding: '0.75rem', background: '#ef4444', borderRadius: '0.5rem', color: '#fff' }}>
                             <AlertTriangle size={20} />
@@ -334,6 +348,72 @@ const DashboardOverview = ({ colors, darkMode }) => {
                     <ArrowRight size={18} color={colors.textMuted} />
                 </div>
             </div>
+
+            {/* Hub Performance Summary Table */}
+            <h3 style={{ ...styles.chartTitle, marginTop: '2.5rem', marginBottom: '1rem' }}>Hub Performance Summary</h3>
+            <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: '1rem', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                    <thead>
+                        <tr>
+                            {['Hub Name', 'Active Orders', 'Max Capacity', 'Utilization %', 'Health'].map(h => (
+                                <th key={h} style={{ padding: '0.875rem 1.25rem', borderBottom: `1px solid ${colors.border}`, color: colors.textMuted, fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', textAlign: 'left' }}>{h}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {stats.hub_utilization.map((hub, i) => {
+                            const util = hub.utilization ?? Math.round((hub.current_load / hub.max_capacity) * 100);
+                            const health = util >= 90 ? { label: 'Overloaded', color: '#ef4444' } : util >= 70 ? { label: 'Near Capacity', color: '#f59e0b' } : { label: 'Healthy', color: '#10b981' };
+                            return (
+                                <tr key={i} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                                    <td style={{ padding: '0.875rem 1.25rem', fontWeight: 600, color: colors.text }}>{hub.name}</td>
+                                    <td style={{ padding: '0.875rem 1.25rem', color: colors.text }}>{hub.current_load ?? hub.currentLoad ?? '—'}</td>
+                                    <td style={{ padding: '0.875rem 1.25rem', color: colors.textMuted }}>{hub.max_capacity ?? hub.capacity ?? '—'}</td>
+                                    <td style={{ padding: '0.875rem 1.25rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <div style={{ flex: 1, height: '6px', background: colors.border, borderRadius: '3px' }}>
+                                                <div style={{ width: `${Math.min(util, 100)}%`, height: '100%', background: health.color, borderRadius: '3px' }} />
+                                            </div>
+                                            <span style={{ fontWeight: 700, color: colors.text, minWidth: '3rem' }}>{util}%</span>
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '0.875rem 1.25rem' }}>
+                                        <span style={{ padding: '0.3rem 0.7rem', borderRadius: '0.4rem', background: `${health.color}20`, color: health.color, fontWeight: 700, fontSize: '0.75rem' }}>{health.label}</span>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        {stats.hub_utilization.length === 0 && (
+                            <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: colors.textMuted }}>No hub data available</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Inventory Risk Alerts Panel */}
+            {inventoryAlerts.length > 0 && (
+                <div>
+                    <h3 style={{ ...styles.chartTitle, marginTop: '2rem', marginBottom: '1rem' }}>Inventory Risk Alerts</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        {inventoryAlerts.slice(0, 3).map((alert, i) => (
+                            <div key={i} style={{
+                                background: colors.surface,
+                                border: `1px solid ${alert.severity === 'CRITICAL' ? '#ef444450' : alert.severity === 'HIGH' ? '#f59e0b50' : colors.border}`,
+                                borderLeft: `4px solid ${alert.severity === 'CRITICAL' ? '#ef4444' : alert.severity === 'HIGH' ? '#f59e0b' : '#3b82f6'}`,
+                                borderRadius: '0.75rem',
+                                padding: '1rem 1.25rem',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                            }}>
+                                <div>
+                                    <div style={{ fontWeight: 600, color: colors.text, fontSize: '0.9rem' }}>{alert.message}</div>
+                                    <div style={{ color: colors.textMuted, fontSize: '0.75rem', marginTop: '0.25rem' }}>{alert.related_hub || ''}</div>
+                                </div>
+                                <span style={{ padding: '0.3rem 0.7rem', borderRadius: '0.4rem', background: alert.severity === 'CRITICAL' ? '#ef444420' : '#f59e0b20', color: alert.severity === 'CRITICAL' ? '#ef4444' : '#f59e0b', fontWeight: 700, fontSize: '0.75rem' }}>{alert.severity}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

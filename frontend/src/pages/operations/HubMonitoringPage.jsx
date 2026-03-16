@@ -16,9 +16,10 @@ const HubMonitoringPage = ({ colors, darkMode }) => {
     const [hubs, setHubs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [reassignModal, setReassignModal] = useState({ isOpen: false, hub: null });
-    const [hubOrders, setHubOrders] = useState([]);
+    const [hubOrders, setHubOrders] = useState({});
     const [fetchingOrders, setFetchingOrders] = useState(false);
     const [processingReassignment, setProcessingReassignment] = useState(null);
+    const [expandedHub, setExpandedHub] = useState(null);
 
     useEffect(() => {
         fetchHubs();
@@ -40,7 +41,8 @@ const HubMonitoringPage = ({ colors, darkMode }) => {
         try {
             setFetchingOrders(true);
             const res = await opsOrderService.getOrders({ hub: hubId });
-            setHubOrders(res.data.results || res.data);
+            const orders = res.data.results || res.data;
+            setHubOrders(prev => ({ ...prev, [hubId]: orders }));
         } catch (err) {
             console.error("Failed to fetch hub orders:", err);
         } finally {
@@ -202,8 +204,8 @@ const HubMonitoringPage = ({ colors, darkMode }) => {
                         </div>
 
                         <div style={{ display: 'flex', gap: '0.75rem' }}>
-                            <button style={styles.actionBtn} onClick={() => alert(`Detailed monitoring view for ${hub.name} will be added soon.`)}>
-                                <Activity size={16} /> Hub Details
+                            <button style={styles.actionBtn} onClick={() => setExpandedHub(expandedHub === hub.id ? null : hub.id)}>
+                                <Activity size={16} /> {expandedHub === hub.id ? 'Hide' : 'Hub Details'}
                             </button>
                             <button 
                                 style={{ ...styles.actionBtn, background: colors.primary, color: '#fff', border: 'none' }} 
@@ -212,6 +214,39 @@ const HubMonitoringPage = ({ colors, darkMode }) => {
                                 <ArrowRight size={16} /> Reassign
                             </button>
                         </div>
+
+                        {/* Inline Hub Detail Panel */}
+                        {expandedHub === hub.id && (
+                            <div style={{ marginTop: '1rem', padding: '1rem', background: darkMode ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.03)', borderRadius: '0.75rem', border: `1px solid ${colors.border}` }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', color: colors.textMuted, fontWeight: 600 }}>Current Load</div>
+                                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: colors.text }}>{hub.current_load} / {hub.max_capacity}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', color: colors.textMuted, fontWeight: 600 }}>Location</div>
+                                        <div style={{ fontSize: '1rem', fontWeight: 600, color: colors.text }}>{hub.location || '—'}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', color: colors.textMuted, fontWeight: 600 }}>Status</div>
+                                        <span style={{ padding: '0.25rem 0.6rem', borderRadius: '0.375rem', background: hub.status === 'ACTIVE' ? '#10b98120' : '#ef444420', color: hub.status === 'ACTIVE' ? '#10b981' : '#ef4444', fontWeight: 700, fontSize: '0.75rem' }}>{hub.status}</span>
+                                    </div>
+                                </div>
+                                {hubOrders[hub.id] && hubOrders[hub.id].length > 0 ? (
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: colors.textMuted, marginBottom: '0.5rem' }}>ACTIVE ORDERS IN THIS HUB</div>
+                                        {hubOrders[hub.id].slice(0, 4).map(o => (
+                                            <div key={o.id || o.order_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: `1px solid ${colors.border}`, fontSize: '0.8rem' }}>
+                                                <span style={{ color: colors.text, fontWeight: 600 }}>{o.order_id}</span>
+                                                <span style={{ color: colors.textMuted }}>{o.status}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ color: colors.textMuted, fontSize: '0.8rem' }}>No active orders data loaded. Click Reassign to load orders.</div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>

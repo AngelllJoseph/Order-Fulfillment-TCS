@@ -7,6 +7,8 @@ export const aiService = {
     bulkRecommend: () => api.post('/ai/decisions/bulk-recommend/'),
     approve: (id, reason = '') => api.post(`/ai/decisions/${id}/approve/`, { reason }),
     reject: (id, reason = '') => api.post(`/ai/decisions/${id}/reject/`, { reason }),
+    getAccuracyStats: () => api.get('/ai/accuracy-stats/'),
+    getApprovalHistory: (params) => api.get('/ai/approval-history/', { params }),
 };
 
 export default aiService;

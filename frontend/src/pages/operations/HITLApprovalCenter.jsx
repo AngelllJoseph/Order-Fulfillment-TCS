@@ -11,6 +11,7 @@ import {
     ChevronUp
 } from 'lucide-react';
 import api from '../../services/api';
+import { aiService } from '../../services/ai';
 
 const HITLApprovalCenter = ({ colors, darkMode }) => {
     const queryClient = useQueryClient();
@@ -28,24 +29,35 @@ const HITLApprovalCenter = ({ colors, darkMode }) => {
         refetchInterval: 30000, // Refresh every 30s
     });
 
+    // Fetch live accuracy stat
+    const { data: accuracyData } = useQuery({
+        queryKey: ['aiAccuracyStats'],
+        queryFn: () => aiService.getAccuracyStats().then(r => r.data),
+        refetchInterval: 60000,
+    });
+
     const approveMutation = useMutation({
         mutationFn: async ({ id, data }) => {
-            const response = await api.post(`/ai/approve/${id}/`, data);
+            // ✅ ViewSet action — resumes LangGraph orchestrator correctly
+            const response = await api.post(`/ai/decisions/${id}/approve/`, data);
             return response.data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['pendingDecisions'] });
+            queryClient.invalidateQueries({ queryKey: ['aiAccuracyStats'] });
             closeModal();
         }
     });
 
     const rejectMutation = useMutation({
         mutationFn: async ({ id, data }) => {
-            const response = await api.post(`/ai/reject/${id}/`, data);
+            // ✅ ViewSet action — resumes LangGraph orchestrator correctly
+            const response = await api.post(`/ai/decisions/${id}/reject/`, data);
             return response.data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['pendingDecisions'] });
+            queryClient.invalidateQueries({ queryKey: ['aiAccuracyStats'] });
             closeModal();
         }
     });
@@ -110,7 +122,9 @@ const HITLApprovalCenter = ({ colors, darkMode }) => {
                     </div>
                     <div>
                         <div style={{ fontSize: '0.875rem', color: colors.textMuted, marginBottom: '0.25rem' }}>Automated Accuracy</div>
-                        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: colors.text }}>94.2%</div>
+                        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: colors.text }}>
+                            {accuracyData ? `${accuracyData.automated_accuracy}%` : '—'}
+                        </div>
                     </div>
                 </div>
             </div>
