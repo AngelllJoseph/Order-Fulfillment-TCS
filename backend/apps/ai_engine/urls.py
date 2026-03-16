@@ -4,7 +4,10 @@ from .views import (
     AIDecisionViewSet,
     PendingDecisionsView,
     ApproveDecisionView,
-    RejectDecisionView
+    RejectDecisionView,
+    AIAccuracyStatsView,
+    AIApprovalHistoryView,
+    ConfidenceThresholdView,
 )
 
 router = DefaultRouter()
@@ -15,4 +18,7 @@ urlpatterns = [
     path('pending-decisions/', PendingDecisionsView.as_view(), name='pending-decisions'),
     path('approve/<uuid:pk>/', ApproveDecisionView.as_view(), name='approve-decision'),
     path('reject/<uuid:pk>/', RejectDecisionView.as_view(), name='reject-decision'),
+    path('accuracy-stats/', AIAccuracyStatsView.as_view(), name='ai-accuracy-stats'),
+    path('approval-history/', AIApprovalHistoryView.as_view(), name='ai-approval-history'),
+    path('settings/confidence-threshold/', ConfidenceThresholdView.as_view(), name='ai-confidence-threshold'),
 ]

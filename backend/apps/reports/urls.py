@@ -6,7 +6,9 @@ from .views import (
     DeliveryTimelinesView,
     CapacityUtilizationView,
     ExportReportsView,
-    DemandSupplyAnalyticsView
+    DemandSupplyAnalyticsView,
+    AIDecisionMetricsView,
+    OrderTrendView,
 )
 
 urlpatterns = [
@@ -17,4 +19,6 @@ urlpatterns = [
     path('capacity/utilization/', CapacityUtilizationView.as_view(), name='report-capacity-util'),
     path('analytics/demand-supply/', DemandSupplyAnalyticsView.as_view(), name='report-demand-supply'),
     path('export/', ExportReportsView.as_view(), name='report-export'),
+    path('ai-metrics/', AIDecisionMetricsView.as_view(), name='report-ai-metrics'),
+    path('order-trend/', OrderTrendView.as_view(), name='report-order-trend'),
 ]

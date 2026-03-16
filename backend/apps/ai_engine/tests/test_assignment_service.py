@@ -57,7 +57,7 @@ def _make_mapping(hub, product, lead_time_hours=24, priority=5, is_enabled=True)
 
 
 def _make_order(product, quantity=10):
-    return Order.objects.create(
+    order = Order.objects.create(
         product=product,
         sku=product.sku,
         quantity=quantity,
@@ -66,6 +66,14 @@ def _make_order(product, quantity=10):
         shipping_address="123 Test Street",
         expected_delivery_date=datetime.date.today() + datetime.timedelta(days=7),
     )
+    from apps.orders.models import OrderItem
+    OrderItem.objects.create(
+        order=order,
+        product=product,
+        sku=product.sku,
+        quantity=quantity
+    )
+    return order
 
 
 # ---------------------------------------------------------------------------
@@ -88,17 +96,20 @@ class AssignmentServiceHappyPathTest(TestCase):
         _make_mapping(self.hub_b, self.product, lead_time_hours=12, priority=9)
 
     def test_returns_expected_keys(self):
-        result = recommend_hub_for_order(self.order.pk)
+        results = recommend_hub_for_order(self.order.pk)
+        result = results[0]
         self.assertIn("recommended_hub_id", result)
         self.assertIn("score", result)
         self.assertIn("reasoning_text", result)
 
     def test_best_hub_selected(self):
-        result = recommend_hub_for_order(self.order.pk)
+        results = recommend_hub_for_order(self.order.pk)
+        result = results[0]
         self.assertEqual(result["recommended_hub_id"], str(self.hub_b.id))
 
     def test_score_is_positive_float(self):
-        result = recommend_hub_for_order(self.order.pk)
+        results = recommend_hub_for_order(self.order.pk)
+        result = results[0]
         self.assertIsInstance(result["score"], float)
         self.assertGreater(result["score"], 0.0)
 
@@ -122,7 +133,8 @@ class AssignmentServiceHappyPathTest(TestCase):
         self.assertLessEqual(decision.confidence_score, 1.0)
 
     def test_reasoning_text_mentions_hub_name(self):
-        result = recommend_hub_for_order(self.order.pk)
+        results = recommend_hub_for_order(self.order.pk)
+        result = results[0]
         self.assertIn("Hub B", result["reasoning_text"])
 
 
@@ -186,13 +198,14 @@ class AssignmentServiceSingleHubTest(TestCase):
         _make_mapping(self.hub, self.product, lead_time_hours=24, priority=7)
 
     def test_single_hub_recommended(self):
-        result = recommend_hub_for_order(self.order.pk)
+        results = recommend_hub_for_order(self.order.pk)
+        result = results[0]
         self.assertEqual(result["recommended_hub_id"], str(self.hub.id))
 
     def test_confidence_score_valid_range_single_hub(self):
         """With one hub, confidence should be a valid float in (0, 1]."""
         recommend_hub_for_order(self.order.pk)
-        decision = AIDecision.objects.get(related_order=self.order)
+        decision = AIDecision.objects.get(related_order=self.order, related_item=self.order.items.first())
         self.assertGreater(decision.confidence_score, 0.0)
         self.assertLessEqual(decision.confidence_score, 1.0)
 

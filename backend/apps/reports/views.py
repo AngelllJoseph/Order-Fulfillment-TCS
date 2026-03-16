@@ -1,11 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import permissions
-from django.db.models import Count, Avg, F, ExpressionWrapper, fields, Sum
+from django.db.models import Count, Avg, F, ExpressionWrapper, fields, Sum, Q
 from django.utils import timezone
 from datetime import timedelta
 from apps.orders.models import Order
 from apps.hubs.models import Hub
+from apps.ai_engine.models import AIDecision
 from django.http import HttpResponse
 import csv
 
@@ -163,6 +164,39 @@ class ExportReportsView(APIView):
         
         return Response({"error": "Unsupported format"}, status=400)
 
+
+class AIDecisionMetricsView(APIView):
+    permission_classes = [ReportUserPermission]
+
+    def get(self, request):
+        """
+        Returns aggregated AI decision metrics for the Program Manager dashboard.
+        Includes approval rate, rejection rate, auto-execution rate, avg confidence.
+        """
+        total = AIDecision.objects.count()
+        approved = AIDecision.objects.filter(status='APPROVED').count()
+        rejected = AIDecision.objects.filter(status='REJECTED').count()
+        auto_executed = AIDecision.objects.filter(status='AUTO_EXECUTED').count()
+        pending = AIDecision.objects.filter(status='WAITING_APPROVAL').count()
+        avg_confidence = AIDecision.objects.aggregate(avg=Avg('confidence_score'))['avg'] or 0
+
+        decided = approved + rejected
+        approval_rate = round((approved / decided) * 100, 1) if decided > 0 else 0
+        rejection_rate = round((rejected / decided) * 100, 1) if decided > 0 else 0
+        auto_exec_rate = round((auto_executed / total) * 100, 1) if total > 0 else 0
+
+        return Response({
+            'total_decisions': total,
+            'approved': approved,
+            'rejected': rejected,
+            'auto_executed': auto_executed,
+            'pending': pending,
+            'avg_confidence_score': round(avg_confidence * 100, 1),
+            'approval_rate': approval_rate,
+            'rejection_rate': rejection_rate,
+            'auto_execution_rate': auto_exec_rate,
+        })
+
 class DemandSupplyAnalyticsView(APIView):
     permission_classes = [ReportUserPermission]
 
@@ -226,3 +260,39 @@ class DemandSupplyAnalyticsView(APIView):
             "current_load": current_load,
             "utilization_prediction": utilization_prediction
         })
+
+
+class OrderTrendView(APIView):
+    """
+    Returns 'orders created per day' for the past N days (default 30).
+    Used for the Dashboard Overview daily trend line chart.
+    """
+    permission_classes = [ReportUserPermission]
+
+    def get(self, request):
+        days = int(request.query_params.get('days', 30))
+        today = timezone.now().date()
+        start = today - timedelta(days=days - 1)
+
+        # Annotate by date
+        from django.db.models.functions import TruncDate
+        qs = (
+            Order.objects
+            .filter(created_at__date__gte=start)
+            .annotate(date=TruncDate('created_at'))
+            .values('date')
+            .annotate(orders=Count('id'))
+            .order_by('date')
+        )
+
+        # Fill in zeros for missing dates
+        data_map = {row['date']: row['orders'] for row in qs}
+        result = []
+        for i in range(days):
+            d = start + timedelta(days=i)
+            result.append({
+                "date": d.strftime("%b %d"),
+                "orders": data_map.get(d, 0)
+            })
+
+        return Response(result)

@@ -71,8 +71,11 @@ class OrderSerializer(serializers.ModelSerializer):
             # If the hub has NO supported_skus specified, we assume it supports everything
             if supported_skus_list and order_sku not in supported_skus_list:
                 # Also fallback to product_id if sku isn't a direct match
-                product_id = (obj.product.product_id or "").strip().lower()
-                if product_id not in supported_skus_list:
+                if obj.product:
+                    product_id = (obj.product.product_id or "").strip().lower()
+                    if product_id not in supported_skus_list:
+                        continue
+                else:
                     continue
                     
             eligible_hubs.append(hub)

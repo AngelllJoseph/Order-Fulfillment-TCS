@@ -17,7 +17,7 @@ class InventoryViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if self.request.user.role == 'ADMIN':
+        if self.request.user.role in ('ADMIN', 'PROGRAM_MANAGER'):
             return queryset
         return queryset.filter(hub_id=self.request.user.hub_id)
 
@@ -62,8 +62,8 @@ class InventoryViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='hub/(?P<hub_id>[^/.]+)')
     def hub_inventory(self, request, hub_id=None):
-        # Check hub-scoped access for non-admins
-        if request.user.role != 'ADMIN' and str(hub_id) != str(request.user.hub_id):
+        # Admins and Program Managers can view any hub's inventory
+        if request.user.role not in ('ADMIN', 'PROGRAM_MANAGER') and str(hub_id) != str(request.user.hub_id):
             return Response(
                 {"error": "You do not have permission to view inventory for this hub."},
                 status=status.HTTP_403_FORBIDDEN
@@ -75,8 +75,8 @@ class InventoryViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='my-hub')
     def my_hub_inventory(self, request):
-        """Returns inventory for the currently logged-in user's assigned hub."""
-        if request.user.role == 'ADMIN':
+        """Returns inventory for the user's hub, or all inventory for ADMIN/PROGRAM_MANAGER."""
+        if request.user.role in ('ADMIN', 'PROGRAM_MANAGER'):
             inventory_items = Inventory.objects.all().select_related('hub', 'product')
         elif request.user.hub_id:
             inventory_items = Inventory.objects.filter(hub_id=request.user.hub_id).select_related('hub', 'product')

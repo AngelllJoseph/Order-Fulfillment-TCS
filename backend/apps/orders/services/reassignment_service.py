@@ -59,6 +59,18 @@ def execute_reassignment(order_item_id, new_hub_id, actor=None, reason=None):
             changed_by=actor
         )
 
+        # 4.5 Check if all items in the order are assigned, if so, update order status to ASSIGNED
+        unassigned_items_count = order.items.filter(assignment_status='PENDING').count() + order.items.filter(assigned_hub__isnull=True).count()
+        if unassigned_items_count == 0 and order.status == 'ORDERED':
+            order.status = 'ASSIGNED'
+            order.save(update_fields=['status', 'updated_at'])
+            OrderStatusHistory.objects.create(
+                order=order,
+                status='ASSIGNED',
+                notes="All items in the order have been assigned to hubs.",
+                changed_by=actor
+            )
+
         # 5. Create Audit Log
         AuditLog.objects.create(
             user=actor,

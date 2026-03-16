@@ -46,7 +46,10 @@ def execute_decision(decision: AIDecision, actor: User = None):
     Execute the logic for a given AI decision.
     """
     if decision.decision_type == 'ASSIGNMENT':
-        _execute_assignment(decision, actor)
+        if decision.related_item:
+            _execute_item_assignment(decision, actor)
+        else:
+            _execute_assignment(decision, actor)
     elif decision.decision_type == 'DELAY_PREDICTION':
         _execute_delay_prediction(decision, actor)
     elif decision.decision_type == 'INVENTORY_ALERT':
@@ -61,6 +64,18 @@ def _execute_assignment(decision: AIDecision, actor: User = None):
     """Reuse existing assignment logic from hitl_service."""
     from apps.ai_engine.services import hitl_service
     hitl_service.execute_assignment(decision, actor)
+
+def _execute_item_assignment(decision: AIDecision, actor: User = None):
+    """Execute assignment for a specific item."""
+    recommendation = decision.recommendation or {}
+    hub_id = recommendation.get("recommended_hub_id")
+    item = decision.related_item
+
+    if not hub_id or not item:
+        raise ValueError("Decision missing hub_id or related_item.")
+
+    from apps.orders.services.reassignment_service import execute_reassignment
+    execute_reassignment(item.id, hub_id, actor=actor, reason="AI Item Assignment")
 
 def _execute_delay_prediction(decision: AIDecision, actor: User = None):
     """Handle delay prediction execution."""
@@ -116,12 +131,13 @@ def _notify_pending_approval(decision: AIDecision):
     """Notify managers about a decision awaiting approval."""
     managers = User.objects.filter(role='PROGRAM_MANAGER', is_active=True)
     order_ref = decision.related_order.order_id if decision.related_order else 'System'
+    item_ref = f" (Item: {decision.related_item.sku})" if decision.related_item else ""
     
     notifications = [
         Notification(
             user=manager,
             title="AI Decision Awaiting Approval",
-            message=f"A new {decision.decision_type} for {order_ref} requires review. Confidence: {decision.confidence_score:.2f}",
+            message=f"A new {decision.decision_type} for {order_ref}{item_ref} requires review. Confidence: {decision.confidence_score:.2f}",
             type='INFO',
             related_order_id=order_ref if decision.related_order else None
         )
