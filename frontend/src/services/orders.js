@@ -7,6 +7,7 @@ export const opsOrderService = {
     updateStatus: (id, status, notes, extra = {}) => api.post(`/orders/${id}/update-status/`, { status, notes, ...extra }),
     getActivityLog: () => api.get('/orders/activity-log/'),
     getStats: () => api.get('/orders/stats/'),
+    reassignItem: (itemId, newHubId, reason) => api.post('/orders/reassign-item/', { item_id: itemId, new_hub_id: newHubId, reason }),
 };
 
 export default opsOrderService;

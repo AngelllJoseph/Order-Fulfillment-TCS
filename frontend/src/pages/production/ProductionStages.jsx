@@ -20,12 +20,18 @@ import {
 } from 'lucide-react';
 import { opsOrderService } from '../../services/orders';
 
-const ProductionStages = ({ colors, darkMode, activeOrder, onBack }) => {
+const ProductionStages = ({ colors, darkMode, activeOrder, onBack, onUpdateOrder }) => {
     const [loading, setLoading] = useState(false);
     const [currentOrder, setCurrentOrder] = useState(activeOrder);
+    
+    // Sync with activeOrder prop if it changes from parent
+    React.useEffect(() => {
+        setCurrentOrder(activeOrder);
+    }, [activeOrder]);
+
     const [notes, setNotes] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
-    
+
     // Delay reporting modal state
     const [showDelayModal, setShowDelayModal] = useState(false);
     const [delayReason, setDelayReason] = useState('Material shortage');
@@ -73,6 +79,9 @@ const ProductionStages = ({ colors, darkMode, activeOrder, onBack }) => {
             const payload = { status: newStatus, notes, ...extraData };
             const response = await opsOrderService.updateStatus(currentOrder.id, newStatus, payload.notes, extraData);
             setCurrentOrder(response.data);
+            if (onUpdateOrder) {
+                onUpdateOrder(response.data);
+            }
             setNotes('');
             setSuccessMessage(`Order moved to ${newStatus.replace(/_/g, ' ')}`);
             setTimeout(() => setSuccessMessage(''), 3000);
@@ -281,14 +290,14 @@ const ProductionStages = ({ colors, darkMode, activeOrder, onBack }) => {
                         <h3 style={{ fontSize: '1.125rem', margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><History size={20} color={colors.primary} /> Production Timeline</h3>
                         <div style={{ position: 'relative', paddingLeft: '1.5rem' }}>
                             <div style={{ position: 'absolute', top: 0, bottom: 0, left: '6px', width: '2px', background: colors.border }} />
-                            
+
                             {[{ label: 'Assigned', time: currentOrder.created_at },
-                              { label: 'Manufacturing Started', time: currentOrder.manufacturing_started_at },
-                              { label: 'QA Started', time: currentOrder.qa_started_at },
-                              { label: 'Manufacturing Completed', time: currentOrder.completed_manufacturing_at },
-                              { label: 'Despatched to Warehouse', time: currentOrder.warehouse_despatched_at },
-                              { label: 'Despatched to Customer', time: currentOrder.customer_despatched_at },
-                              { label: 'Order Closed', time: currentOrder.completed_at }
+                            { label: 'Manufacturing Started', time: currentOrder.manufacturing_started_at },
+                            { label: 'QA Started', time: currentOrder.qa_started_at },
+                            { label: 'Manufacturing Completed', time: currentOrder.completed_manufacturing_at },
+                            { label: 'Despatched to Warehouse', time: currentOrder.warehouse_despatched_at },
+                            { label: 'Despatched to Customer', time: currentOrder.customer_despatched_at },
+                            { label: 'Order Closed', time: currentOrder.completed_at }
                             ].map((event, i) => (
                                 <div key={i} style={{ position: 'relative', marginBottom: '1.5rem' }}>
                                     <div style={{ position: 'absolute', left: '-1.5rem', top: '4px', width: '14px', height: '14px', borderRadius: '50%', background: event.time ? colors.primary : colors.surface, border: `2px solid ${event.time ? colors.primary : colors.border}`, zIndex: 1 }} />

@@ -1,11 +1,17 @@
-// Placeholder for InventoryManagement
+// Inventory Management Page for Production Lead
 import React from 'react';
+import InventoryOverview from './InventoryOverview';
 
-const InventoryManagement = ({ colors }) => {
+const InventoryManagement = ({ colors, darkMode }) => {
     return (
-        <div style={{ padding: '2rem', background: colors.cardBg, borderRadius: '1rem', border: `1px solid ${colors.border}` }}>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Inventory Management</h2>
-            <p style={{ color: colors.textMuted }}>Manage raw materials and product inventory.</p>
+        <div style={{ 
+            padding: '2rem', 
+            background: colors.cardBg, 
+            borderRadius: '1.25rem', 
+            border: `1px solid ${colors.border}`,
+            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+        }}>
+            <InventoryOverview colors={colors} darkMode={darkMode} />
         </div>
     );
 };

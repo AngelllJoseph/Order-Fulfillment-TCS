@@ -73,19 +73,41 @@ const OrderDetails = ({ order, colors, darkMode, onClose, onUpdateStatus, onNavi
 
                 <div style={styles.content}>
                     <div>
-                        <div style={styles.sectionTitle}><Package size={14} /> Product & Manufacturing</div>
+                        <div style={styles.sectionTitle}><Package size={14} /> Products & Manufacturing</div>
                         <div style={styles.infoCard}>
-                            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                                <div style={{ width: '60px', height: '60px', borderRadius: '12px', background: `${colors.primary}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Package color={colors.primary} size={32} />
+                            {order.items && order.items.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {order.items.map((item, idx) => (
+                                        <div key={idx} style={{ 
+                                            display: 'flex', gap: '1rem', alignItems: 'center', 
+                                            paddingBottom: idx === order.items.length - 1 ? 0 : '0.75rem',
+                                            borderBottom: idx === order.items.length - 1 ? 'none' : `1px solid ${colors.border}50`
+                                        }}>
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: `${colors.primary}10`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Package color={colors.primary} size={20} />
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{item.product_name}</div>
+                                                <div style={{ color: colors.textMuted, fontSize: '0.75rem' }}>SKU: {item.product_sku}</div>
+                                            </div>
+                                            <div style={{ fontWeight: 800, color: colors.primary }}>x{item.quantity}</div>
+                                        </div>
+                                    ))}
                                 </div>
-                                <div>
-                                    <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{order.product_details?.name}</div>
-                                    <div style={{ color: colors.textMuted, fontSize: '0.8rem' }}>SKU: {order.sku}</div>
+                            ) : (
+                                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                                    <div style={{ width: '60px', height: '60px', borderRadius: '12px', background: `${colors.primary}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Package color={colors.primary} size={32} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{order.product_details?.name}</div>
+                                        <div style={{ color: colors.textMuted, fontSize: '0.8rem' }}>SKU: {order.sku}</div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem' }}>
-                                <div><div style={styles.label}>Quantity</div><div style={styles.value}>{order.quantity} Units</div></div>
+                            )}
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem', paddingTop: '1.25rem', borderTop: `1px solid ${colors.border}` }}>
+                                <div><div style={styles.label}>Total Quantity</div><div style={styles.value}>{order.items?.reduce((s, i) => s + i.quantity, 0) || order.quantity} Units</div></div>
                                 <div><div style={styles.label}>Priority</div><div style={{ ...styles.value, color: order.priority === 'HIGH' ? '#ef4444' : 'inherit' }}>{order.priority}</div></div>
                                 <div><div style={styles.label}>Assigned Hub</div><div style={styles.value}>{order.hub_details?.name || 'Unassigned'}</div></div>
                                 <div><div style={styles.label}>Delivery Date</div><div style={styles.value}>{new Date(order.expected_delivery_date).toLocaleDateString()}</div></div>

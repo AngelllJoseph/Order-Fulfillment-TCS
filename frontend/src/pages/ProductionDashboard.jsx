@@ -21,7 +21,7 @@ import {
     Activity
 } from 'lucide-react';
 
-import ProductionOverview from './production/ProductionOverview';
+import ProductionOverview from './manufacturing/ProductionOverview';
 import AssignedOrders from './production/AssignedOrders';
 import ProductionStages from './production/ProductionStages';
 import InventoryManagement from './production/InventoryManagement';
@@ -36,17 +36,34 @@ const ProductionDashboard = () => {
     const { user, logout } = useAuth();
     const [darkMode, setDarkMode] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [activeTab, setActiveTab] = useState('production-overview');
-    const [activeOrder, setActiveOrder] = useState(null);
+    const [activeTab, setActiveTab] = useState(() => {
+        return localStorage.getItem('production_active_tab') || 'production-overview';
+    });
+    const [activeOrder, setActiveOrder] = useState(() => {
+        const saved = localStorage.getItem('production_active_order');
+        return saved ? JSON.parse(saved) : null;
+    });
+
+    const handleSetActiveTab = (tab) => {
+        setActiveTab(tab);
+        localStorage.setItem('production_active_tab', tab);
+    };
 
     const handleOpenProduction = (order) => {
         setActiveOrder(order);
-        setActiveTab('production-stages');
+        localStorage.setItem('production_active_order', JSON.stringify(order));
+        handleSetActiveTab('production-stages');
+    };
+
+    const handleUpdateOrder = (updatedOrder) => {
+        setActiveOrder(updatedOrder);
+        localStorage.setItem('production_active_order', JSON.stringify(updatedOrder));
     };
 
     const handleBackToOrders = () => {
         setActiveOrder(null);
-        setActiveTab('assigned-orders');
+        localStorage.removeItem('production_active_order');
+        handleSetActiveTab('assigned-orders');
     };
 
     const toggleTheme = () => setDarkMode(!darkMode);
@@ -225,7 +242,7 @@ const ProductionDashboard = () => {
                     {navItems.map(item => (
                         <button
                             key={item.id}
-                            onClick={() => setActiveTab(item.id)}
+                            onClick={() => handleSetActiveTab(item.id)}
                             style={styles.navItem(activeTab === item.id)}
                         >
                             {activeTab === item.id && <div style={styles.navIndicator} />}
@@ -305,18 +322,19 @@ const ProductionDashboard = () => {
                     <div style={{ marginTop: '1rem' }}>
                         {activeTab === 'production-overview' && <ProductionOverview colors={colors} darkMode={darkMode} />}
                         {activeTab === 'assigned-orders' && (
-                            <AssignedOrders 
-                                colors={colors} 
-                                darkMode={darkMode} 
-                                onOpenProduction={handleOpenProduction} 
+                            <AssignedOrders
+                                colors={colors}
+                                darkMode={darkMode}
+                                onOpenProduction={handleOpenProduction}
                             />
                         )}
                         {activeTab === 'production-stages' && (
-                            <ProductionStages 
-                                colors={colors} 
-                                darkMode={darkMode} 
+                            <ProductionStages
+                                colors={colors}
+                                darkMode={darkMode}
                                 activeOrder={activeOrder}
                                 onBack={handleBackToOrders}
+                                onUpdateOrder={handleUpdateOrder}
                             />
                         )}
                         {activeTab === 'inventory-management' && <InventoryManagement colors={colors} darkMode={darkMode} />}

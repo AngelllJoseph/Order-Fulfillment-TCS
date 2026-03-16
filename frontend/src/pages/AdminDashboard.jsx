@@ -10,6 +10,8 @@ import SystemMaintenancePage from '../pages/system/SystemMaintenancePage';
 import SettingsPage from '../pages/settings/SettingsPage';
 import NotificationApprovalPage from './operations/NotificationApprovalPage';
 import CommunicationPage from '../pages/orders/CommunicationPage';
+import AIRecommendationsPage from './operations/AIRecommendationsPage';
+import AuditLogsPage from './operations/AuditLogsPage';
 import { hubService, commonService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from '../components/NotificationBell';
@@ -38,6 +40,21 @@ import {
     ShoppingCart,
     MessageSquare
 } from 'lucide-react';
+import {
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    PieChart,
+    Pie,
+    Cell,
+    BarChart,
+    Bar,
+    Legend
+} from 'recharts';
 
 const AdminDashboard = () => {
     const { user, logout } = useAuth();
@@ -50,7 +67,10 @@ const AdminDashboard = () => {
         active_users: 0,
         operating_hubs: 0,
         security_alerts: 0,
-        trends: { orders: '0%', users: '0%', hubs: 'Stable', alerts: 'No alerts' }
+        trends: { orders: '0%', users: '0%', hubs: 'Stable', alerts: 'No alerts' },
+        daily_orders: [],
+        status_distribution: [],
+        hub_workload: []
     });
 
     useEffect(() => {
@@ -268,6 +288,21 @@ const AdminDashboard = () => {
             alignItems: 'center',
             color: colors.textMuted,
         },
+        chartGrid: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+            gap: '1.5rem',
+            marginBottom: '2.5rem',
+        },
+        chartCard: {
+            background: colors.cardBg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '1.25rem',
+            padding: '1.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+        },
         badge: (type) => {
             const colors = {
                 success: { bg: '#10b98115', text: '#10b981' },
@@ -473,10 +508,80 @@ const AdminDashboard = () => {
                                 </div>
                             </div>
 
-                            <div style={styles.chartPlaceholder}>
-                                <TrendingUp size={48} color={colors.primary} style={{ opacity: 0.5, marginBottom: '1rem' }} />
-                                <p style={{ fontWeight: 600 }}>Real-time Analytics View</p>
-                                <p style={{ fontSize: '0.875rem', opacity: 0.7 }}>Visualizations for fulfillment performance will appear here.</p>
+                            <div style={styles.chartGrid}>
+                                {/* Order Velocity Chart */}
+                                <div style={{ ...styles.chartCard, gridColumn: 'span 2' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Order Velocity (7 Days)</h3>
+                                        <div style={styles.badge('success')}>Real-time</div>
+                                    </div>
+                                    <div style={{ height: '300px', width: '100%', minWidth: 0, position: 'relative' }}>
+                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                            <AreaChart data={stats.daily_orders}>
+                                                <defs>
+                                                    <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor={colors.primary} stopOpacity={0.3} />
+                                                        <stop offset="95%" stopColor={colors.primary} stopOpacity={0} />
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} vertical={false} />
+                                                <XAxis dataKey="date" stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} />
+                                                <YAxis stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} />
+                                                <Tooltip 
+                                                    contentStyle={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: '0.75rem', color: colors.text }}
+                                                    itemStyle={{ color: colors.primary }}
+                                                />
+                                                <Area type="monotone" dataKey="orders" stroke={colors.primary} strokeWidth={3} fillOpacity={1} fill="url(#colorOrders)" />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* Status Distribution Chart */}
+                                <div style={styles.chartCard}>
+                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Order Status Breakdown</h3>
+                                    <div style={{ height: '300px', width: '100%', minWidth: 0, position: 'relative' }}>
+                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                            <PieChart>
+                                                <Pie
+                                                    data={stats.status_distribution}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={60}
+                                                    outerRadius={80}
+                                                    paddingAngle={5}
+                                                    dataKey="value"
+                                                >
+                                                    {stats.status_distribution.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={[colors.primary, colors.secondary, colors.accent, '#f59e0b', '#ef4444'][index % 5]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip 
+                                                    contentStyle={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: '0.75rem', color: colors.text }}
+                                                />
+                                                <Legend iconType="circle" />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* Hub Workload Chart */}
+                                <div style={styles.chartCard}>
+                                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Top Manufacturing Hubs</h3>
+                                    <div style={{ height: '300px', width: '100%', minWidth: 0, position: 'relative' }}>
+                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                            <BarChart data={stats.hub_workload} layout="vertical">
+                                                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} horizontal={false} />
+                                                <XAxis type="number" stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} />
+                                                <YAxis dataKey="name" type="category" stroke={colors.textMuted} fontSize={10} width={100} tickLine={false} axisLine={false} />
+                                                <Tooltip 
+                                                    contentStyle={{ background: colors.surface, border: `1px solid ${colors.border}`, borderRadius: '0.75rem', color: colors.text }}
+                                                />
+                                                <Bar dataKey="orders" fill={colors.secondary} radius={[0, 4, 4, 0]} barSize={20} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
                             </div>
                         </>
                     )}
@@ -494,6 +599,8 @@ const AdminDashboard = () => {
                             {activeTab === 'notification-approval' && <NotificationApprovalPage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'maintenance' && <SystemMaintenancePage colors={colors} darkMode={darkMode} />}
                             {activeTab === 'settings' && <SettingsPage colors={colors} darkMode={darkMode} />}
+                            {activeTab === 'ai-config' && <AIRecommendationsPage colors={colors} darkMode={darkMode} />}
+                            {activeTab === 'audit' && <AuditLogsPage colors={colors} darkMode={darkMode} />}
                         </>
                     )}
                 </main>

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { opsOrderService } from '../../services/orders';
 import { opsHubService } from '../../services/hubs';
+import { aiService } from '../../services/ai';
 
 const OrderAssignmentPage = ({ colors, darkMode }) => {
     const [unassignedOrders, setUnassignedOrders] = useState([]);
@@ -18,6 +19,7 @@ const OrderAssignmentPage = ({ colors, darkMode }) => {
     const [hubs, setHubs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [assigning, setAssigning] = useState(null);
+    const [recommending, setRecommending] = useState(null);
     const [selectedHubs, setSelectedHubs] = useState({});
 
     useEffect(() => {
@@ -27,19 +29,50 @@ const OrderAssignmentPage = ({ colors, darkMode }) => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [unassignedRes, assignedRes, hubsRes] = await Promise.all([
+            const [unassignedRes, assignedRes, hubsRes, aiRes] = await Promise.all([
                 opsOrderService.getUnassignedOrders(),
                 opsOrderService.getOrders({ status: 'ASSIGNED' }),
-                opsHubService.getMonitoringStats()
+                opsHubService.getMonitoringStats(),
+                aiService.getDecisions({ status: 'WAITING_APPROVAL' })
             ]);
-            setUnassignedOrders(unassignedRes.data);
-            setAssignedOrders(assignedRes.data.results || assignedRes.data); // Handle paginated or unpaginated response
+            
+            const orders = unassignedRes.data;
+            const decisions = aiRes.data.results || aiRes.data;
+
+            // Merge AI recommendations into orders
+            const ordersWithAI = orders.map(order => {
+                const decision = decisions.find(d => d.related_order === order.id);
+                return {
+                    ...order,
+                    ai_decision: decision
+                };
+            });
+
+            // TRIGGER PROACTIVE AI: If any unassigned orders lack an AI decision, trigger bulk recommend
+            const ordersNeedingAI = ordersWithAI.filter(o => !o.ai_decision);
+            if (ordersNeedingAI.length > 0) {
+                console.log(`Triggering AI for ${ordersNeedingAI.length} orders...`);
+                await aiService.bulkRecommend();
+                // Re-fetch to get the new decisions
+                const newAiRes = await aiService.getDecisions({ status: 'WAITING_APPROVAL' });
+                const newDecisions = newAiRes.data.results || newAiRes.data;
+                
+                ordersWithAI.forEach(order => {
+                    if (!order.ai_decision) {
+                        order.ai_decision = newDecisions.find(d => d.related_order === order.id);
+                    }
+                });
+            }
+
+            setUnassignedOrders(ordersWithAI);
+            setAssignedOrders(assignedRes.data.results || assignedRes.data);
             setHubs(hubsRes.data);
 
             const initialSelections = {};
-            unassignedRes.data.forEach(order => {
-                if (order.ai_recommendation?.hub_id) {
-                    initialSelections[order.id] = order.ai_recommendation.hub_id;
+            ordersWithAI.forEach(order => {
+                const hubId = order.ai_decision?.recommendation?.recommended_hub_id;
+                if (hubId) {
+                    initialSelections[order.id] = hubId;
                 }
             });
             setSelectedHubs(initialSelections);
@@ -55,13 +88,25 @@ const OrderAssignmentPage = ({ colors, darkMode }) => {
         try {
             setAssigning(orderId);
             await opsOrderService.assignHub(orderId, hubId);
-            // Refresh counts
             fetchData();
         } catch (err) {
             console.error("Assignment failed:", err);
             alert("Failed to assign hub. Please try again.");
         } finally {
             setAssigning(null);
+        }
+    };
+
+    const handleAIRecommend = async (orderId) => {
+        try {
+            setRecommending(orderId);
+            await aiService.recommend(orderId);
+            fetchData();
+        } catch (err) {
+            console.error("AI Recommendation failed:", err);
+            alert("AI logic failed. Check SKU mappings and hub capacity.");
+        } finally {
+            setRecommending(null);
         }
     };
 
@@ -159,17 +204,42 @@ const OrderAssignmentPage = ({ colors, darkMode }) => {
                                 </td>
                                 <td style={styles.td}>{order.quantity}</td>
                                 <td style={styles.td}>
-                                    {order.ai_recommendation ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                                            <span style={styles.aiBadge}>
-                                                <Brain size={12} /> {order.ai_recommendation.hub_name} (Confidence {order.ai_recommendation.confidence}%)
+                                    {order.ai_decision ? (
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            flexDirection: 'column', 
+                                            gap: '0.4rem',
+                                            padding: '0.6rem',
+                                            paddingBottom: '0.8rem',
+                                            background: `${colors.primary}08`,
+                                            borderRadius: '0.8rem',
+                                            border: `1px solid ${colors.primary}20`,
+                                            position: 'relative',
+                                            overflow: 'hidden'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                                                <span style={{...styles.aiBadge, background: colors.primary, color: '#fff', padding: '0.25rem 0.6rem', margin: 0}}>
+                                                    <Brain size={12} /> {hubs.find(h => h.id === order.ai_decision.recommendation?.recommended_hub_id)?.name || 'Recommended Hub'}
+                                                </span>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: colors.primary }}>
+                                                    {(order.ai_decision.confidence_score * 100).toFixed(0)}% Match
+                                                </span>
+                                            </div>
+                                            <span style={{ fontSize: '0.75rem', color: colors.text, opacity: 0.9, fontStyle: 'italic', lineHeight: '1.2' }}>
+                                                "{order.ai_decision.recommendation?.reasoning_text}"
                                             </span>
-                                            <span style={{ fontSize: '0.7rem', color: colors.textMuted }}>
-                                                Reason: {order.ai_recommendation.reason}
-                                            </span>
+                                            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: colors.primary, opacity: 0.3 }} />
                                         </div>
                                     ) : (
-                                        <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>No recommendation available</span>
+                                        <div style={{ padding: '0.5rem', textAlign: 'center' }}>
+                                            <button 
+                                                style={{...styles.aiBadge, cursor: 'pointer', border: `1px dashed ${colors.primary}40`, background: 'transparent', color: colors.primary, padding: '0.4rem 1rem'}}
+                                                onClick={() => handleAIRecommend(order.id)}
+                                                disabled={recommending === order.id}
+                                            >
+                                                <Brain size={12} /> {recommending === order.id ? 'Analyzing...' : 'Generate New Suggestion'}
+                                            </button>
+                                        </div>
                                     )}
                                 </td>
                                 <td style={styles.td}>

@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 import { opsOrderService } from '../../services/orders';
 import { opsHubService } from '../../services/hubs';
+import { aiService } from '../../services/ai';
 
 const DashboardOverview = ({ colors, darkMode }) => {
     const [stats, setStats] = useState({
@@ -26,6 +27,7 @@ const DashboardOverview = ({ colors, darkMode }) => {
         in_production: 0,
         delayed: 0,
         active_hubs: 0,
+        pending_ai: 0,
         by_status: [],
         hub_utilization: [],
         daily_trend: []
@@ -39,13 +41,15 @@ const DashboardOverview = ({ colors, darkMode }) => {
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
-            const [orderRes, hubRes] = await Promise.all([
+            const [orderRes, hubRes, aiRes] = await Promise.all([
                 opsOrderService.getStats(),
-                opsHubService.getMonitoringStats()
+                opsHubService.getMonitoringStats(),
+                aiService.getDecisions({ status: 'WAITING_APPROVAL' })
             ]);
 
             const orderData = orderRes.data;
             const hubData = hubRes.data;
+            const aiData = aiRes.data.results || aiRes.data;
 
             // Map backend status stats to pie chart format
             const statusMap = {
@@ -70,9 +74,10 @@ const DashboardOverview = ({ colors, darkMode }) => {
                 in_production: orderData.stats?.IN_PRODUCTION || 0,
                 delayed: orderData.delayed_orders || 0,
                 active_hubs: hubData.filter(h => h.status === 'ACTIVE').length,
+                pending_ai: aiData.length || 0,
                 by_status: byStatus,
                 hub_utilization: hubData.map(h => ({ name: h.name, utilization: h.usage_percent })),
-                daily_trend: [] // Backend trend endpoint not yet implemented, keep mock or fetch if available
+                daily_trend: []
             });
         } catch (err) {
             console.error("Failed to fetch dashboard data:", err);
@@ -323,7 +328,7 @@ const DashboardOverview = ({ colors, darkMode }) => {
                         </div>
                         <div>
                             <div style={{ fontWeight: 600 }}>AI Suggestions</div>
-                            <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>8 optimization suggestions</div>
+                            <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>{stats.pending_ai} optimization suggestions</div>
                         </div>
                     </div>
                     <ArrowRight size={18} color={colors.textMuted} />

@@ -296,8 +296,8 @@ const OrdersPage = ({ colors, darkMode, onNavigate }) => {
                     <thead>
                         <tr>
                             <th style={styles.th}>Order ID</th>
-                            <th style={styles.th}>Product & SKU</th>
-                            <th style={styles.th}>Quantity</th>
+                            <th style={styles.th}>Products</th>
+                            <th style={styles.th}>Total Qty</th>
                             <th style={styles.th}>Customer</th>
                             <th style={styles.th}>Hub</th>
                             <th style={styles.th}>Status</th>
@@ -326,10 +326,27 @@ const OrdersPage = ({ colors, darkMode, onNavigate }) => {
                                     <div style={{ fontSize: '0.7rem', color: colors.textMuted }}>{new Date(o.created_at).toLocaleString()}</div>
                                 </td>
                                 <td style={styles.td}>
-                                    <div style={{ fontWeight: 600 }}>{o.product_details?.name || 'Unknown'}</div>
-                                    <div style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: colors.textMuted }}>{o.sku}</div>
+                                    {o.items && o.items.length > 0 ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                            {o.items.map((item, idx) => (
+                                                <div key={idx} style={{ fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ fontWeight: 600 }}>{item.product_name}</span>
+                                                    <span style={{ fontSize: '0.75rem', color: colors.textMuted, marginLeft: '0.5rem' }}>x{item.quantity}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div style={{ fontWeight: 600 }}>{o.product_details?.name || 'Unknown'}</div>
+                                            <div style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: colors.textMuted }}>{o.sku}</div>
+                                        </>
+                                    )}
                                 </td>
-                                <td style={styles.td}>{o.quantity} units</td>
+                                <td style={styles.td}>
+                                    {o.items && o.items.length > 0 
+                                        ? o.items.reduce((sum, item) => sum + item.quantity, 0) 
+                                        : o.quantity} units
+                                </td>
                                 <td style={styles.td}>
                                     <div style={{ fontWeight: 600 }}>{o.customer_name}</div>
                                     <div style={{ fontSize: '0.75rem', color: colors.textMuted }}>{o.customer_email || 'N/A'}</div>

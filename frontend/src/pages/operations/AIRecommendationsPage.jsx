@@ -10,12 +10,12 @@ import {
     Shield,
     TrendingUp
 } from 'lucide-react';
-import { auditService } from '../../services/audit';
+import { aiService } from '../../services/ai';
 
 const AIRecommendationsPage = ({ colors, darkMode }) => {
     const [recommendations, setRecommendations] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [statuses, setStatuses] = useState({});
+    const [actioning, setActioning] = useState(null);
 
     useEffect(() => {
         fetchRecommendations();
@@ -24,15 +24,8 @@ const AIRecommendationsPage = ({ colors, darkMode }) => {
     const fetchRecommendations = async () => {
         try {
             setLoading(true);
-            const res = await auditService.getAIRecommendations();
-            setRecommendations(res.data);
-
-            // Initialize all as Pending
-            const initialStatuses = {};
-            res.data.forEach(rec => {
-                initialStatuses[rec.id] = 'Pending';
-            });
-            setStatuses(initialStatuses);
+            const res = await aiService.getDecisions({ status: 'WAITING_APPROVAL' });
+            setRecommendations(res.data.results || res.data);
         } catch (err) {
             console.error("Failed to fetch AI recommendations:", err);
         } finally {
@@ -40,23 +33,40 @@ const AIRecommendationsPage = ({ colors, darkMode }) => {
         }
     };
 
-    const handleAction = (id, action) => {
-        setStatuses(prev => ({
-            ...prev,
-            [id]: action
-        }));
+    const handleAction = async (id, action) => {
+        try {
+            setActioning(id);
+            if (action === 'Approved') {
+                await aiService.approve(id);
+            } else {
+                await aiService.reject(id, "Manually rejected via dashboard");
+            }
+            // Success! Remove from list or refresh
+            setRecommendations(prev => prev.filter(r => r.id !== id));
+        } catch (err) {
+            console.error(`Failed to ${action} recommendation:`, err);
+            alert(`Failed to ${action}. Please try again.`);
+        } finally {
+            setActioning(null);
+        }
     };
 
-    const handleBulkApprove = () => {
-        setStatuses(prev => {
-            const next = { ...prev };
-            Object.keys(next).forEach(id => {
-                if (next[id] === 'Pending') {
-                    next[id] = 'Approved';
-                }
-            });
-            return next;
-        });
+    const handleBulkApprove = async () => {
+        const pending = recommendations.filter(r => r.status === 'WAITING_APPROVAL');
+        if (pending.length === 0) return;
+
+        setLoading(true);
+        try {
+            // Sequential for safety, or Promise.all
+            await Promise.all(pending.map(r => aiService.approve(r.id)));
+            fetchRecommendations();
+        } catch (err) {
+            console.error("Bulk approval failed:", err);
+            alert("Some approvals failed. Refreshing list.");
+            fetchRecommendations();
+        } finally {
+            setLoading(false);
+        }
     };
 
     const styles = {
@@ -140,43 +150,55 @@ const AIRecommendationsPage = ({ colors, darkMode }) => {
                         </thead>
                         <tbody>
                             {recommendations.map(rec => {
-                                const currentStatus = statuses[rec.id] || 'Pending';
+                                const currentStatus = rec.status;
+                                const isActioning = actioning === rec.id;
 
                                 return (
                                     <tr key={rec.id}>
                                         <td style={styles.td}><span style={{ color: colors.textMuted }}>#{rec.id.toString().slice(0, 5)}</span></td>
-                                        <td style={styles.td}><span style={{ fontWeight: 700 }}>{rec.new_value?.includes('Order') || rec.new_value?.includes('ORD-') ? rec.new_value.split(' ')[1] || 'ORDER' : 'SYSTEM'}</span></td>
+                                        <td style={styles.td}>
+                                            <span style={{ fontWeight: 700 }}>{rec.order_id || 'SYSTEM'}</span>
+                                            {rec.product_name && <div style={{ fontSize: '0.7rem', color: colors.textMuted }}>{rec.product_name}</div>}
+                                        </td>
                                         <td style={styles.td}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                 <Shield size={16} color={colors.secondary} />
-                                                <span style={{ fontWeight: 600 }}>{rec.action}</span>
+                                                <span style={{ fontWeight: 600 }}>{rec.decision_type}</span>
                                             </div>
                                         </td>
                                         <td style={styles.td}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                                 <TrendingUp size={16} color="#10b981" />
-                                                <span style={{ fontWeight: 700 }}>96%</span>
+                                                <span style={{ fontWeight: 700 }}>{(rec.confidence_score * 100).toFixed(0)}%</span>
                                             </div>
                                         </td>
                                         <td style={styles.td}>
                                             <div style={{ fontSize: '0.8rem', color: colors.textMuted, maxWidth: '250px', lineHeight: '1.4' }}>
-                                                {rec.new_value || `AI suggested ${rec.action} based on historical patterns.`}
+                                                {rec.recommendation?.reasoning_text || `AI suggested ${rec.decision_type} based on weighted scoring.`}
                                             </div>
                                         </td>
-                                        <td style={styles.td}><span style={styles.badge(currentStatus)}>{currentStatus}</span></td>
+                                        <td style={styles.td}><span style={styles.badge(currentStatus === 'WAITING_APPROVAL' ? 'Pending' : currentStatus === 'APPROVED' ? 'Approved' : 'Rejected')}>{currentStatus}</span></td>
                                         <td style={styles.td}>
-                                            {currentStatus === 'Pending' ? (
+                                            {currentStatus === 'WAITING_APPROVAL' ? (
                                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                    <button style={styles.actionBtn('approve')} onClick={() => handleAction(rec.id, 'Approved')}>
-                                                        <CheckCircle size={16} /> Approve
+                                                    <button 
+                                                        style={{...styles.actionBtn('approve'), opacity: isActioning ? 0.7 : 1}} 
+                                                        onClick={() => handleAction(rec.id, 'Approved')}
+                                                        disabled={isActioning}
+                                                    >
+                                                        <CheckCircle size={16} /> {isActioning ? '...' : 'Approve'}
                                                     </button>
-                                                    <button style={styles.actionBtn('reject')} onClick={() => handleAction(rec.id, 'Rejected')}>
+                                                    <button 
+                                                        style={{...styles.actionBtn('reject'), opacity: isActioning ? 0.7 : 1}} 
+                                                        onClick={() => handleAction(rec.id, 'Rejected')}
+                                                        disabled={isActioning}
+                                                    >
                                                         <XCircle size={16} />
                                                     </button>
                                                 </div>
                                             ) : (
                                                 <span style={{ color: colors.textMuted, fontSize: '0.8rem', fontWeight: 600 }}>
-                                                    {currentStatus === 'Approved' ? 'Action Applied' : 'Suggestion Dismissed'}
+                                                    {currentStatus === 'APPROVED' || currentStatus === 'AUTO_EXECUTED' ? 'Action Applied' : 'Suggestion Dismissed'}
                                                 </span>
                                             )}
                                         </td>

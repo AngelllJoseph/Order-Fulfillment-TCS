@@ -26,7 +26,7 @@ const AuditLogsPage = ({ colors, darkMode }) => {
                 action: searchQuery || undefined,
             };
             const res = await auditService.getLogs(params);
-            setLogs(res.data);
+            setLogs(res.data.results || res.data || []);
         } catch (err) {
             console.error("Failed to fetch audit logs:", err);
         } finally {
