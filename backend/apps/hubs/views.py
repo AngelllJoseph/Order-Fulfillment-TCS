@@ -96,11 +96,8 @@ class HubViewSet(viewsets.ModelViewSet):
         
         data = []
         for hub in hubs:
-            # Dynamically calculate load based on active orders (assume 1 order = 1 unit of load for simplicity, or sum quantities if available)
-            # We will just use active orders count directly multiplied by an average load factor (e.g., 50 units per order)
-            # Or better, just sum the actual quantities of active orders, but for now we'll do active_orders_count * 10
-            # to make the UI look populated. Let's use active_orders_count as current_load for simplicity.
-            current_load = hub.active_orders_count * 20  # Mock multiplier so 1 order = 20 load
+            # Use actual hub.current_load which is updated by reassignment_service
+            current_load = hub.current_load
 
             if hub.max_daily_capacity == 0:
                 load_percent = 0

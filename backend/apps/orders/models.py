@@ -24,10 +24,10 @@ class Order(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order_id = models.CharField(max_length=50, unique=True, editable=False)
     
-    # Product Info
-    product = models.ForeignKey('products.Product', on_delete=models.CASCADE, related_name='orders')
-    sku = models.CharField(max_length=100) # Denormalized for quick search/history
-    quantity = models.PositiveIntegerField(default=1)
+    # Legacy Product Info (Keeping for migration/backward compatibility, making nullable)
+    product = models.ForeignKey('products.Product', on_delete=models.SET_NULL, null=True, blank=True, related_name='legacy_orders')
+    sku = models.CharField(max_length=100, blank=True, null=True)
+    quantity = models.PositiveIntegerField(default=1, blank=True, null=True)
     
     # Customer Info
     customer_name = models.CharField(max_length=255)
@@ -64,16 +64,59 @@ class Order(models.Model):
             count = Order.objects.filter(created_at__date=timezone.now().date()).count() + 1
             self.order_id = f"ORD-{today}-{count:03d}"
         
+        # Legacy SKU handling
         if self.product and not self.sku:
             self.sku = self.product.sku
             
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.order_id} - {self.product.name}"
+        return f"{self.order_id} - {self.customer_name}"
 
     class Meta:
         ordering = ['-created_at']
+
+class OrderItem(models.Model):
+    ASSIGNMENT_STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('ASSIGNED', 'Assigned'),
+        ('REJECTED', 'Rejected'),
+        ('FAILED', 'Failed'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey('products.Product', on_delete=models.CASCADE, related_name='order_items')
+    sku = models.CharField(max_length=100)
+    quantity = models.PositiveIntegerField(default=1)
+    price_at_order = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    assigned_hub = models.ForeignKey('hubs.Hub', on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_items')
+    
+    assignment_status = models.CharField(
+        max_length=20, 
+        choices=ASSIGNMENT_STATUS_CHOICES, 
+        default='PENDING'
+    )
+    ai_decision = models.ForeignKey(
+        'ai_engine.AIDecision', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='order_items'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.sku and self.product:
+            self.sku = self.product.sku
+        if not self.price_at_order and self.product:
+            self.price_at_order = self.product.price
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.order.order_id} - {self.product.name} (x{self.quantity})"
 
 class OrderStatusHistory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

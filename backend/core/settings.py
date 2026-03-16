@@ -63,6 +63,10 @@ INSTALLED_APPS = [
     'apps.user_sessions',
     'apps.auth_custom',
     'apps.products',
+    'apps.ai_engine',
+    'apps.reports',
+    'apps.operations',
+    'apps.inventory',
 ]
 
 MIDDLEWARE = [

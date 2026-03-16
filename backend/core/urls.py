@@ -30,4 +30,9 @@ urlpatterns = [
     path('api/orders/', include('apps.orders.urls')),
     path('api/notifications/', include('apps.notifications.urls')),
     path('api/common/', include('apps.common.urls')),
+    path('api/dashboard/', include('apps.common.urls')),
+    path('api/ai/', include('apps.ai_engine.urls')),
+    path('api/reports/', include('apps.reports.urls')),
+    path('api/operations/', include('apps.operations.urls')),
+    path('api/inventory/', include('apps.inventory.urls')),
 ]

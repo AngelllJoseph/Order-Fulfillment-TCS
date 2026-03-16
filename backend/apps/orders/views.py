@@ -9,9 +9,10 @@ from .serializers import OrderSerializer, OrderCreateSerializer, OrderStatusHist
 from .filters import OrderFilter
 from apps.products.models import Product
 from django_filters.rest_framework import DjangoFilterBackend
+from .services.reassignment_service import execute_reassignment
 
 class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.all().prefetch_related('status_history', 'product', 'hub')
+    queryset = Order.objects.all().prefetch_related('status_history', 'items', 'items__product', 'product', 'hub')
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
@@ -21,6 +22,13 @@ class OrderViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return OrderCreateSerializer
         return OrderSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.action in ['list', 'retrieve']:
+            from apps.hubs.models import Hub
+            context['active_hubs'] = list(Hub.objects.filter(status='ACTIVE', auto_assignment_enabled=True))
+        return context
 
     def perform_create(self, serializer):
         with transaction.atomic():
@@ -241,9 +249,14 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({"error": "Hub not found"}, status=status.HTTP_404_NOT_FOUND)
 
         with transaction.atomic():
-            order.hub = hub
+            # Assign all items of this order to specified hub
+            for item in order.items.all():
+                item.assigned_hub = hub
+                item.assignment_status = 'ASSIGNED'
+                item.save(update_fields=['assigned_hub', 'assignment_status', 'updated_at'])
+                
             order.status = 'ASSIGNED'
-            order.save()
+            order.save(update_fields=['status', 'updated_at'])
 
             OrderStatusHistory.objects.create(
                 order=order,
@@ -267,6 +280,29 @@ class OrderViewSet(viewsets.ModelViewSet):
                 pass
 
         return Response(OrderSerializer(order).data)
+
+    @action(detail=False, methods=['post'], url_path='reassign-item')
+    def reassign_item(self, request):
+        item_id = request.data.get('item_id')
+        new_hub_id = request.data.get('new_hub_id')
+        reason = request.data.get('reason', 'Manual reassignment')
+
+        if not item_id or not new_hub_id:
+            return Response({"error": "item_id and new_hub_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            from .models import OrderItem
+            item = execute_reassignment(
+                order_item_id=item_id,
+                new_hub_id=new_hub_id,
+                actor=request.user if not request.user.is_anonymous else None,
+                reason=reason
+            )
+            return Response({"message": f"Item {item.sku} successfully reassigned to {item.assigned_hub.name}"})
+        except OrderItem.DoesNotExist:
+            return Response({"error": "Order item not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=['post'], url_path='send-email')
     def send_email(self, request, pk=None):
@@ -314,11 +350,32 @@ class OrderViewSet(viewsets.ModelViewSet):
             if order.expected_delivery_date:
                 step_3_range = DateFormat(order.expected_delivery_date).format('d M')
 
-            # Calculate financial totals based on product price and quantity
-            price_per_unit = float(order.product.price) if order.product else 0.0
-            quantity = int(order.quantity) if order.quantity else 1
+            # Calculate financial totals based on multiple items
+            items_list = []
+            subtotal = 0.0
             
-            subtotal = price_per_unit * quantity
+            for item in order.items.all():
+                item_price = float(item.price_at_order or item.product.price)
+                item_total = item_price * item.quantity
+                subtotal += item_total
+                items_list.append({
+                    'product_name': item.product.name,
+                    'price': f"{item_price:.2f}",
+                    'quantity': item.quantity,
+                    'total': f"{item_total:.2f}"
+                })
+            
+            # Fallback for legacy orders
+            if not items_list and order.product:
+                price_per_unit = float(order.product.price)
+                quantity = int(order.quantity)
+                subtotal = price_per_unit * quantity
+                items_list.append({
+                    'product_name': order.product.name,
+                    'price': f"{price_per_unit:.2f}",
+                    'quantity': quantity,
+                    'total': f"{subtotal:.2f}"
+                })
             shipping = 2.00 if subtotal > 0 else 0.00
             tax = subtotal * 0.05 # Assuming 5% tax rate
             order_total = subtotal + shipping + tax
@@ -332,9 +389,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'status_text': status_text,
                 'custom_message': message,
                 'progress_percentage': progress_percentage,
-                'product_name': order.product.name if order.product else "Product",
-                'product_price': f"{price_per_unit:.2f}",
-                'quantity': quantity,
+                'items_list': items_list,
                 'expected_delivery': formatted_expected_date,
                 'order_date': formatted_order_date,
                 'subtotal': f"{subtotal:.2f}",

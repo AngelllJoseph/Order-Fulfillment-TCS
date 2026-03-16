@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, OrderStatusHistory
+from .models import Order, OrderItem, OrderStatusHistory
 from apps.products.serializers import ProductSerializer
 from apps.hubs.serializers import HubSerializer
 
@@ -8,6 +8,17 @@ class SimpleOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ['id', 'order_id', 'status', 'customer_name', 'customer_email', 'product']
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.ReadOnlyField(source='product.name')
+    product_sku = serializers.ReadOnlyField(source='product.sku')
+
+    class Meta:
+        model = OrderItem
+        fields = [
+            'id', 'product', 'product_name', 'product_sku', 'quantity', 
+            'price_at_order', 'assigned_hub', 'assignment_status', 'ai_decision'
+        ]
 
 class OrderStatusHistorySerializer(serializers.ModelSerializer):
     changed_by_name = serializers.ReadOnlyField(source='changed_by.get_full_name')
@@ -22,6 +33,7 @@ class OrderSerializer(serializers.ModelSerializer):
     product_details = ProductSerializer(source='product', read_only=True)
     hub_details = HubSerializer(source='hub', read_only=True)
     status_history = OrderStatusHistorySerializer(many=True, read_only=True)
+    items = OrderItemSerializer(many=True, read_only=True)
     ai_recommendation = serializers.SerializerMethodField()
     
     class Meta:
@@ -34,9 +46,11 @@ class OrderSerializer(serializers.ModelSerializer):
         
         from apps.hubs.models import Hub, HubSKUMapping
         
-        active_hubs = Hub.objects.filter(status='ACTIVE', auto_assignment_enabled=True)
-        if not active_hubs.exists():
-            return None
+        active_hubs = self.context.get('active_hubs')
+        if active_hubs is None:
+            active_hubs = Hub.objects.filter(status='ACTIVE', auto_assignment_enabled=True)
+            if not active_hubs.exists():
+                return None
             
         # Check if there are any SKU mappings defined overall
         has_mappings = HubSKUMapping.objects.filter(is_enabled=True).exists()
@@ -119,13 +133,28 @@ class OrderSerializer(serializers.ModelSerializer):
         return None
 
 class OrderCreateSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True)
+
     class Meta:
         model = Order
         fields = [
-            'product', 'quantity', 'customer_name', 'customer_phone', 'customer_email',
+            'items', 'customer_name', 'customer_phone', 'customer_email',
             'shipping_address', 'priority', 'expected_delivery_date'
         ]
 
     def create(self, validated_data):
-        # Additional logic can be added here if needed (e.g., auto-assignment)
-        return super().create(validated_data)
+        items_data = validated_data.pop('items')
+        
+        # Pull first item info for legacy compatibility
+        if items_data:
+            first_item = items_data[0]
+            validated_data['product'] = first_item['product']
+            validated_data['quantity'] = first_item['quantity']
+            validated_data['sku'] = first_item['product'].sku
+
+        order = Order.objects.create(**validated_data)
+        
+        for item_data in items_data:
+            OrderItem.objects.create(order=order, **item_data)
+            
+        return order
